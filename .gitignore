@@ -1,0 +1,10 @@
+node_modules/
+.vercel/
+.env
+.env.*
+!.env.example
+
+# Personal files that must never be uploaded (one holds passwords)
+*.xlsx
+*.xls
+~$*

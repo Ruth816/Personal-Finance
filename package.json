@@ -1,0 +1,16 @@
+{
+  "name": "ruths-expenses-log",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ruth's Expenses Log: personal expense tracker on Vercel + Supabase",
+  "scripts": {
+    "dev": "node dev-server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
+}
