@@ -344,8 +344,8 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
     </div>
     <div class="tiles" id="incTiles"></div>
     <div class="card stack">
-      <div class="row spread"><h2>Income tracking</h2><span class="small muted">Property = rent marked received on Rented properties</span></div>
-      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Projected</th><th class="r">Actual</th><th class="r">Additional</th><th class="r">Total income</th><th>Indicator</th></tr></thead><tbody id="incBody"></tbody></table></div>
+      <div class="row spread"><h2>Income tracking</h2><span class="small muted">Total income = Actual + Additional</span></div>
+      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Actual</th><th class="r">Additional</th><th class="r">Total income this month</th></tr></thead><tbody id="incBody"></tbody></table></div>
     </div>
     <div class="card stack">
       <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Projected = Budget tracking · Actual = Expenses log</span></div>
@@ -981,28 +981,21 @@ function renderIncome(items){
   const ind=(p,a,isInc)=>!p&&!a?'<span class="ind na">–</span>':!p?'<span class="ind na">No projection</span>':(isInc?a>=p:a<=p)?'<span class="ind ok">On track</span>':'<span class="ind no">Out of track</span>';
   const inp=(key,val)=>show?'<input type="number" min="0" step="100" inputmode="decimal" data-inc="'+key+'" value="'+(val||'')+'" placeholder="0" aria-label="Amount">':money(val);
   const rentDue=S.props.filter(p=>inContract(p,m)).reduce((t,p)=>t+p.rent,0),rentGot=S.props.reduce((t,p)=>{const r=(p.rentPaid||{})[m];return t+(r?(+r.amt||p.rent):0)},0);
-  /* income columns: Projected | Actual | Additional | Total income (= Actual + Additional) | Indicator (Total vs Projected) */
-  let pI=0,aI=0,dI=0;
-  const mi=+m.slice(5),addOf=id=>+B['inc:'+id+':add:'+m]||0;
-  const cells=(pH,aH,id,p,a,d)=>'<td class="num r">'+pH+'</td><td class="num r">'+aH+'</td><td class="num r">'+(id?inp('inc:'+id+':add:'+m,d):money(d))+'</td><td class="num r"><strong>'+money(a+d)+'</strong></td><td>'+ind(p,a+d,true)+'</td>';
+  /* income columns: Actual | Additional | Total income this month (= Actual + Additional) */
+  let aI=0,dI=0;
+  const addOf=id=>+B['inc:'+id+':add:'+m]||0;
+  const cells=(aH,id,a,d)=>'<td class="num r">'+aH+'</td><td class="num r">'+(id?inp('inc:'+id+':add:'+m,d):money(d))+'</td><td class="num r"><strong>'+money(a+d)+'</strong></td>';
   $('#incBody').innerHTML=INC.map(([id,name])=>{
     if(id==='interest'){
-      let gp=0,ga=0,gd=0;
-      const rows=INT.map(s=>{
-        const per=+B['inc:'+s.id]||0,months=payMonths(s,B),due=months.includes(MSHORT[mi-1]),p=due?per:0,a=+B['inc:'+s.id+':'+m]||0,d=addOf(s.id);gp+=p;ga+=a;gd+=d;
-        const freq=s.every===1?'Monthly':s.every===3?'Quarterly':'Yearly';
-        const sched=s.every===1?'':show?' · paid in <select data-inc="inc:'+s.id+':m" aria-label="Payout months">'
-          +(s.every===3?[1,2,3].map(k=>'<option value="'+k+'"'+(months[0]===MSHORT[k-1]?' selected':'')+'>'+[0,3,6,9].map(o=>MSHORT[k-1+o]).join(', ')+'</option>').join('')
-            :MSHORT.map((x,k)=>'<option value="'+(k+1)+'"'+(months[0]===x?' selected':'')+'>'+x+'</option>').join(''))+'</select>'
-          :' · '+months.join(', ');
-        return '<tr class="sub"><td>'+esc(s.name)+'<span class="auto">'+freq+sched+'</span></td>'
-          +cells(inp('inc:'+s.id,per)+'<span class="auto">'+(s.every===1?'per month':'per payout')+(s.every>1&&!due?' · none this month':'')+'</span>',inp('inc:'+s.id+':'+m,a),s.id,p,a,d)+'</tr>'}).join('');
-      pI+=gp;aI+=ga;dI+=gd;
-      return '<tr class="group"><td>'+name+'</td>'+cells(money(gp),money(ga),null,gp,ga,gd)+'</tr>'+rows;
+      let ga=0,gd=0;
+      const rows=INT.map(s=>{const a=+B['inc:'+s.id+':'+m]||0,d=addOf(s.id);ga+=a;gd+=d;
+        return '<tr class="sub"><td>'+esc(s.name)+'<span class="auto">'+(s.every===1?'Monthly':s.every===3?'Quarterly':'Yearly')+'</span></td>'+cells(inp('inc:'+s.id+':'+m,a),s.id,a,d)+'</tr>'}).join('');
+      aI+=ga;dI+=gd;
+      return '<tr class="group"><td>'+name+'</td>'+cells(money(ga),null,ga,gd)+'</tr>'+rows;
     }
-    const auto=id==='property',p=auto?(+B['inc:property']||rentDue):(+B['inc:'+id]||0),a=auto?rentGot:(+B['inc:'+id+':'+m]||0),d=addOf(id);pI+=p;aI+=a;dI+=d;
-    return '<tr><td>'+name+'</td>'+cells(auto?money(p)+'<span class="auto">rent due</span>':inp('inc:'+id,p),auto?money(a)+'<span class="auto">rent received</span>':inp('inc:'+id+':'+m,a),id,p,a,d)+'</tr>'}).join('')
-    +'<tr class="totalrow"><td>Total income</td>'+cells(money(pI),money(aI),null,pI,aI,dI)+'</tr>';
+    const auto=id==='property',a=auto?rentGot:(+B['inc:'+id+':'+m]||0),d=addOf(id);aI+=a;dI+=d;
+    return '<tr><td>'+name+(auto?'<span class="auto">from Rented properties</span>':'')+'</td>'+cells(auto?money(a)+'<span class="auto">rent received</span>':inp('inc:'+id+':'+m,a),id,a,d)+'</tr>'}).join('')
+    +'<tr class="totalrow"><td>Total income</td>'+cells(money(aI),null,aI,dI)+'</tr>';
   const tI=aI+dI;
   const act={};items.forEach(x=>act[x.cat]=(act[x.cat]||0)+x.amt);
   let pE=0,aE=0;
@@ -1013,7 +1006,7 @@ function renderIncome(items){
   $('#incTiles').innerHTML=[['Total income · '+MONTHS[+m.slice(5)-1].slice(0,3),money(tI),''],['Expenses · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aE),''],['Net',show?(net<0?'('+fmt(-net)+')':fmt(net)):'<span class="mask">•••••</span>',show&&net<0?' neg':'']]
     .map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
   const lab=(sel,ls)=>document.querySelectorAll(sel+' tr').forEach(tr=>ls.forEach((l,i)=>{if(l&&tr.cells[i])tr.cells[i].dataset.l=l}));
-  lab('#incBody',['','Projected','Actual','Additional','Total income']);lab('#expBody',['','Projected','Actual','Variance']);
+  lab('#incBody',['','Actual','Additional','Total income']);lab('#expBody',['','Projected','Actual','Variance']);
 }
 $('#incShow').addEventListener('click',()=>{S.incShow=!S.incShow;render()});
 $('#incBody').addEventListener('change',e=>{
