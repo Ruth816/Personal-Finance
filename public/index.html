@@ -89,7 +89,7 @@ button,input,select{font:inherit;color:inherit}
 .btn[disabled]{opacity:.55;cursor:default}
 .msg{font-size:13.5px;color:var(--bad);min-height:18px}
 .msg.info{color:var(--muted)}
-.suggest{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--card);border:1px solid var(--accent);border-radius:8px;margin-top:2px;overflow:hidden;box-shadow:0 8px 24px rgba(10,14,50,.18)}
+.suggest{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--card);border:1px solid var(--accent);border-radius:8px;margin-top:2px;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(10,14,50,.18)}
 .suggest button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;cursor:pointer}
 .suggest button.on,.suggest button:hover{background:var(--accent-soft)}
 .suggest .s2{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
@@ -209,7 +209,7 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked sect
       </div>
       <form class="form" id="form" autocomplete="off">
         <div class="f c3"><label for="fDate">Date</label><input type="date" id="fDate" required><span class="hint" id="fDay"></span></div>
-        <div class="f c5"><label for="fDesc">Description</label><input type="text" id="fDesc" maxlength="120" placeholder="What was it for?" role="combobox" aria-expanded="false" aria-controls="suggest"><div class="suggest" id="suggest" hidden></div><span class="hint" id="fDescHint">Items you entered before will be suggested as you type.</span></div>
+        <div class="f c5"><label for="fDesc">Description</label><input type="text" id="fDesc" maxlength="120" placeholder="What was it for?" role="combobox" aria-expanded="false" aria-controls="suggest"><div class="suggest" id="suggest" hidden></div><span class="hint" id="fDescHint">Click to choose from your usual places, or type to search.</span></div>
         <div class="f c4"><label for="fCat">Category</label><select id="fCat"></select></div>
         <div class="f c3"><label for="fAmt">Amount (₱)</label><input type="number" id="fAmt" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
         <div class="f c4"><label for="fAcct">Account</label><select id="fAcct"></select></div>
@@ -262,7 +262,7 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked sect
   <section id="v-budget" class="stack" hidden>
     <div class="tiles" id="budgetTiles"></div>
     <div class="card stack">
-      <div class="row spread"><h2 id="budgetTitle"></h2><span class="small muted">Variance = budget − actual. Type a monthly budget for any category.</span></div>
+      <div class="row spread"><h2 id="budgetTitle"></h2><span class="small muted">Variance = budget − actual. Type a monthly budget for a whole group or for any category.</span></div>
       <div class="scroll"><table><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th>% of spending</th><th>Status</th></tr></thead><tbody id="budgetBody"></tbody></table></div>
     </div>
   </section>
@@ -285,6 +285,19 @@ const GROUPS=[
  {id:'official',name:'Other: official only',cats:[['staff-meals','Meals with staff & customers'],['apps','Apps subscription'],['office','Office matters expenses']]}
 ];
 const ACCOUNTS=['Cash','GCash','BDO Personal','UnionBank Personal','BPI Joint Account','BDO Joint Account','Rewards Platinum Mastercard','Cashback Platinum Mastercard','BDO Platinum Mastercard','BPI Visa Signature'];
+/* Ruth's usual merchants (from EXPENSES CATEGORIES.docx, one name per merchant, branches merged) */
+const PRESET_DESCS=['Adobe','Agoda','Amazon','Anker','Ansons','Anthropic (Claude)','Apple (App Store / iCloud)','Army Navy','Asian Hospital','Asian Pharma',
+ 'B25 Drama','Booking.com','Brent International School','Brick Corner','Cafe Mary Grace','Caltex','Canva','Cathay Pacific','Chatterbox','Chili\'s',
+ 'China Ticket Online','Chubb Insurance','Classic Savory','Coco Ichibanya','Cotton On','Datablitz','Decathlon','Dior','Exquisite Manila','Fully Booked',
+ 'Grab','Hamleys','Healthy Options','Heybo','Heyday','Honolulu Cafe','Italianni\'s','Kids Depot','KKV','Lazada',
+ 'Lead Empire Co','Lumi app','Makan Makan Singapore','Massimo Dutti','Medexpress Drugstore','Mercury Drug','Meralco','Modern Shang','Muji','Nanyang Kopitiam',
+ 'Northpark','Oldtown White Coffee','Online Bills Payment','OpenAI (ChatGPT)','Pancake House','Paradise Dynasty','Paramount Life','Paul Boulangerie','PC Express','Persia Grill',
+ 'Petron','Pink\'s Hot Dogs','Power Mac Center','Pru Life UK','QuickBooks (Intuit)','Ramen Ron','Red Lotus','Red Ribbon','Rustan\'s Department Store','Shell',
+ 'SM Store','SM Supermarket','South Supermarket','St. Luke\'s Medical Center (SLMC)','Tartufo Ristorante','The Fort Residences','The List (BHS)','The Marketplace','The Underbelly','Tim Ho Wan',
+ 'TMP 8 Forbes Town Road','Tuan Tuan','Unicity','Vercel','Via Mare','Virginia\'s Bistro','Wilcon Depot',
+ /* online shops (Shopify "SP …" charges) */
+ 'Alma Pure Ritual','Asarai','Aveleya','Cellumove','Groundingwell','Kallistia','Kivora','Momenta Gifts','NMYMY','Peaksta',
+ 'Restoradaily','Saybeam','Skult','Skulta','The Purest Co'];
 const CAT={};GROUPS.forEach(g=>g.cats.forEach(([id,name])=>CAT[id]={id,name,group:g}));
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -472,18 +485,26 @@ $('#fltAcct').addEventListener('change',e=>{S.fltAcct=e.target.value;render()});
 let sugg=[],suggOn=-1;
 function hideSuggest(){$('#suggest').hidden=true;$('#fDesc').setAttribute('aria-expanded','false');sugg=[];suggOn=-1}
 function showSuggest(){
-  const q=$('#fDesc').value.trim().toLowerCase();if(!q){hideSuggest();return}
-  sugg=[...memory().values()].filter(o=>o.desc.toLowerCase().includes(q)).sort((a,b)=>(b.desc.toLowerCase().startsWith(q)-a.desc.toLowerCase().startsWith(q))||b.n-a.n||b.ts-a.ts).slice(0,6);
+  const q=$('#fDesc').value.trim().toLowerCase(),mem=memory();
+  const past=[...mem.values()].filter(o=>o.desc.toLowerCase().includes(q)).sort((a,b)=>(q&&(b.desc.toLowerCase().startsWith(q)-a.desc.toLowerCase().startsWith(q)))||b.n-a.n||b.ts-a.ts).slice(0,q?6:5);
+  const shown=new Set(past.map(o=>o.desc.toLowerCase()));
+  const pre=PRESET_DESCS.filter(d=>!shown.has(d.toLowerCase())&&d.toLowerCase().includes(q)).sort((a,b)=>q?(b.toLowerCase().startsWith(q)-a.toLowerCase().startsWith(q)):0).map(d=>{const m=mem.get(d.toLowerCase());return m||{desc:d,preset:true}});
+  sugg=past.concat(pre);
   if(!sugg.length||(sugg.length===1&&sugg[0].desc.toLowerCase()===q&&$('#fCat').value)){hideSuggest();return}
   suggOn=-1;
-  $('#suggest').innerHTML=sugg.map((o,i)=>'<button type="button" data-i="'+i+'"><span>'+esc(o.desc)+'</span><span class="s2">'+esc((CAT[o.cat]||{}).name||'')+' · '+esc(o.acct)+'</span></button>').join('');
+  $('#suggest').innerHTML=sugg.map((o,i)=>'<button type="button" data-i="'+i+'"><span>'+esc(o.desc)+'</span><span class="s2">'+(o.preset?'':esc((CAT[o.cat]||{}).name||'')+' · '+esc(o.acct))+'</span></button>').join('');
+  $('#suggest').scrollTop=0;
   $('#suggest').hidden=false;$('#fDesc').setAttribute('aria-expanded','true');
 }
-function pickSuggest(o){$('#fDesc').value=o.desc;if(CAT[o.cat])$('#fCat').value=o.cat;if(ACCOUNTS.includes(o.acct))$('#fAcct').value=o.acct;if(!$('#fAmt').value)$('#fAmt').value=o.amt;hideSuggest();formMsg('Filled in from last time. Check the amount.',true);$('#fAmt').focus();$('#fAmt').select()}
+function pickSuggest(o){
+  if(o.preset){$('#fDesc').value=o.desc;hideSuggest();formMsg('');($('#fCat').value?$('#fAmt'):$('#fCat')).focus();return}
+  $('#fDesc').value=o.desc;if(CAT[o.cat])$('#fCat').value=o.cat;if(ACCOUNTS.includes(o.acct))$('#fAcct').value=o.acct;if(!$('#fAmt').value)$('#fAmt').value=o.amt;hideSuggest();formMsg('Filled in from last time. Check the amount.',true);$('#fAmt').focus();$('#fAmt').select()}
 $('#fDesc').addEventListener('input',showSuggest);
+$('#fDesc').addEventListener('focus',showSuggest);
+$('#fDesc').addEventListener('click',()=>{if($('#suggest').hidden)showSuggest()});
 $('#fDesc').addEventListener('keydown',e=>{
   if($('#suggest').hidden)return;
-  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();suggOn=(suggOn+(e.key==='ArrowDown'?1:-1)+sugg.length)%sugg.length;[...$('#suggest').children].forEach((b,i)=>b.classList.toggle('on',i===suggOn))}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();suggOn=(suggOn+(e.key==='ArrowDown'?1:-1)+sugg.length)%sugg.length;[...$('#suggest').children].forEach((b,i)=>{b.classList.toggle('on',i===suggOn);if(i===suggOn)b.scrollIntoView({block:'nearest'})})}
   else if(e.key==='Enter'&&suggOn>=0){e.preventDefault();pickSuggest(sugg[suggOn])}
   else if(e.key==='Escape')hideSuggest();
 });
@@ -491,7 +512,7 @@ $('#fDesc').addEventListener('blur',()=>setTimeout(()=>{
   hideSuggest();const o=memory().get($('#fDesc').value.trim().toLowerCase());
   if(o&&!$('#fCat').value){if(CAT[o.cat])$('#fCat').value=o.cat;if(!$('#fAcct').value&&ACCOUNTS.includes(o.acct))$('#fAcct').value=o.acct}
 },150));
-$('#suggest').addEventListener('mousedown',e=>{const b=e.target.closest('button');if(b){e.preventDefault();pickSuggest(sugg[+b.dataset.i])}});
+$('#suggest').addEventListener('mousedown',e=>{e.preventDefault();const b=e.target.closest('button');if(b)pickSuggest(sugg[+b.dataset.i])});
 
 /* ---------- receipt photo ---------- */
 /* shrink the photo so it uploads quickly and stays under the server's size limit */
@@ -702,15 +723,17 @@ function renderBudget(items){
   const act={};items.forEach(x=>act[x.cat]=(act[x.cat]||0)+x.amt);
   const B=budgetNow(),total=sum(items);
   const focus=document.activeElement&&document.activeElement.classList.contains('budget-in')?{id:document.activeElement.id,v:document.activeElement.value}:null;
-  let tb=0;Object.keys(CAT).forEach(id=>tb+=+B[id]||0);
-  const over=Object.keys(CAT).filter(id=>(+B[id]||0)>0&&(act[id]||0)>B[id]).length;
-  $('#budgetTiles').innerHTML=[['Budget',fmt(tb),''],['Actual',fmt(total),''],['Variance',fmt(tb-total),tb-total<0?' neg':''],['Categories over budget',String(over),over?' neg':'']].map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
+  /* a group's budget is the amount typed on its own row; if none is typed, the sum of its categories' budgets */
+  const gInfo=g=>{let cb=0,ga=0;g.cats.forEach(([id])=>{cb+=+B[id]||0;ga+=act[id]||0});const own=+B['grp:'+g.id]||0;return {cb,ga,own,gb:own||cb}};
+  let tb=0,over=Object.keys(CAT).filter(id=>(+B[id]||0)>0&&(act[id]||0)>B[id]).length;
+  GROUPS.forEach(g=>{const i=gInfo(g);tb+=i.gb;if(i.own&&i.ga>i.own)over++});
+  $('#budgetTiles').innerHTML=[['Budget',fmt(tb),''],['Actual',fmt(total),''],['Variance',fmt(tb-total),tb-total<0?' neg':''],['Over budget',String(over),over?' neg':'']].map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
   $('#budgetTitle').textContent='Budget vs actual · '+monthName(S.month);
   const share=v=>'<span class="sharebar"><i style="width:'+(total?v/total*100:0)+'%"></i></span><span class="num">'+(total?(v/total*100).toFixed(1):'0.0')+'%</span>';
   const vcell=(b,a)=>(b>0||a>0)?'<td class="num r'+(b-a<0?' neg':'')+'">'+fmt(b-a)+'</td>':'<td class="num r muted">–</td>';
   $('#budgetBody').innerHTML=GROUPS.map(g=>{
-    let gb=0,ga=0;g.cats.forEach(([id])=>{gb+=+B[id]||0;ga+=act[id]||0});
-    return '<tr class="group"><td>'+esc(g.name)+'</td><td class="num r">'+(gb?fmt(gb):'')+'</td><td class="num r">'+fmt(ga)+'</td>'+vcell(gb,ga)+'<td>'+share(ga)+'</td><td>'+(gb>0&&ga>gb?'<span class="pill bad">Over by '+fmt(ga-gb)+'</span>':'')+'</td></tr>'
+    const {cb,ga,own,gb}=gInfo(g);
+    return '<tr class="group"><td>'+esc(g.name)+(own&&cb&&own!==cb?'<div class="small muted" style="font-weight:400">Categories add up to '+fmt(cb)+'</div>':'')+'</td><td class="r"><input class="budget-in" id="b-grp-'+g.id+'" data-cat="grp:'+g.id+'" type="number" min="0" step="100" inputmode="decimal" placeholder="'+(cb?cb:0)+'" value="'+(own||'')+'" aria-label="Budget for '+esc(g.name)+' (whole group)" title="Budget for the whole group. Leave empty to use the total of its categories."></td><td class="num r">'+fmt(ga)+'</td>'+vcell(gb,ga)+'<td>'+share(ga)+'</td><td>'+(gb>0&&ga>gb?'<span class="pill bad">Over by '+fmt(ga-gb)+'</span>':'')+'</td></tr>'
       +g.cats.map(([id,name])=>{const b=+B[id]||0,a=act[id]||0;return '<tr'+(b>0&&a>b?' class="over"':'')+'><td>'+esc(name)+'</td><td class="r"><input class="budget-in" id="b-'+id+'" data-cat="'+id+'" type="number" min="0" step="100" inputmode="decimal" placeholder="0" value="'+(b||'')+'" aria-label="Budget for '+esc(name)+'"></td><td class="num r">'+(a?fmt(a):'<span class="muted">–</span>')+'</td>'+vcell(b,a)+'<td>'+(a?share(a):'')+'</td><td>'+statusPill(b,a)+'</td></tr>'}).join('');
   }).join('')+'<tr class="totalrow"><td>Total</td><td class="num r">'+fmt(tb)+'</td><td class="num r">'+fmt(total)+'</td><td class="num r'+(tb-total<0?' neg':'')+'">'+fmt(tb-total)+'</td><td><span class="num">'+(total?'100%':'')+'</span></td><td>'+(tb>0?(total>tb?'<span class="pill bad">Over by '+fmt(total-tb)+'</span>':'<span class="pill good">On track</span>'):'')+'</td></tr>';
   if(focus){const el=document.getElementById(focus.id);if(el){el.value=focus.v;el.focus()}}
