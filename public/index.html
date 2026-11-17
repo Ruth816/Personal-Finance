@@ -103,6 +103,8 @@ td.r,th.r{text-align:right}
 td.num{white-space:nowrap}
 tr.group td{background:var(--accent-soft);font-weight:600;border-bottom:1px solid var(--rule)}
 tr.over td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+tr.ask td{background:var(--bad-soft)} tr.ask td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+.raw{display:block;font-size:12px;color:var(--muted)}
 tr.totalrow td{border-top:2px solid var(--ink);border-bottom:0;font-weight:600}
 .catsub{display:block;font-size:12px;color:var(--muted)}
 .empty{padding:26px 10px;text-align:center;color:var(--muted)}
@@ -150,7 +152,12 @@ details.day .items div{display:flex;justify-content:space-between;gap:12px}
 .login{max-width:400px;margin:24px auto 0;width:100%}
 .login form{display:flex;flex-direction:column;gap:12px}
 .login input{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;width:100%}
-body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
+.inbox{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.inbox:empty{display:none}
+.rc{border:1px solid var(--rule);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--paper)}
+.rc img{width:100%;height:150px;object-fit:cover;border-radius:6px;background:var(--rule);cursor:zoom-in}
+.rc .row{gap:4px;flex-wrap:wrap}
+body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked #keepBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
 .signout{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0;text-decoration:underline}
 [hidden]{display:none!important}
 </style>
@@ -181,6 +188,15 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked sect
     <a href="#budget" data-view="budget">Budget tracking</a>
   </nav>
 
+  <div class="banner stack" id="keepBanner" hidden>
+    <span id="keepText"></span>
+    <div class="row">
+      <button type="button" class="btn" id="keepExcel" hidden>Download expenses as Excel</button>
+      <button type="button" class="btn" id="keepPhotos" hidden>Download photos</button>
+      <button type="button" class="btn" id="keepDelete">I have saved my copy, delete them</button>
+      <button type="button" class="btn link" id="keepLater">Remind me later</button>
+    </div>
+  </div>
   <div class="banner" id="demoBanner" hidden>These are example entries so you can see how each page works. They disappear when you add your first expense.</div>
 
   <!-- SIGN IN -->
@@ -222,8 +238,21 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked sect
       </form>
     </div>
 
+    <div class="card stack" id="inboxCard" hidden>
+      <div class="row spread">
+        <div><h2>Receipts inbox</h2><span class="small muted" id="inboxInfo"></span></div>
+        <div class="row">
+          <button type="button" class="btn" id="inboxReadAll" hidden>Read all</button>
+          <button type="button" class="btn primary" id="inboxUpload">Upload receipts</button>
+          <input type="file" id="inboxInput" accept="image/*" multiple hidden>
+        </div>
+      </div>
+      <div class="inbox" id="inboxList"></div>
+      <span class="msg" id="inboxMsg" role="status"></span>
+    </div>
+
     <div class="card stack" id="importCard" hidden>
-      <div class="row spread"><h2>Check the imported items</h2><span class="small muted" id="impInfo"></span></div>
+      <div class="row spread"><div><h2>Check the imported items</h2><span class="small muted" id="impInfo"></span></div><select id="impAcct" aria-label="Set the account for every row" style="width:250px"></select></div>
       <div class="scroll"><table class="imp"><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th>Category</th><th>Account</th><th></th></tr></thead><tbody id="impBody"></tbody></table></div>
       <div class="row"><button type="button" class="btn primary" id="impAdd">Add these to the log</button><button type="button" class="btn" id="impDiscard">Discard</button><span class="msg" id="impMsg"></span></div>
     </div>
@@ -281,23 +310,121 @@ const GROUPS=[
  {id:'kids',name:'Kids & education',cats:[['allowances','Allowances'],['tuition','Tuition fees'],['books','Books & materials'],['school-events','School travel/events expenses'],['kids-shop','Kids shopping expenses']]},
  {id:'fun',name:'Entertainment',cats:[['movies','Movies'],['concerts','Concert/events'],['leisure','Leisure travel with friends'],['parties','Parties & gifts'],['wine-dine','Wine & dine with friends']]},
  {id:'social',name:'Social responsibilities',cats:[['emergency','Emergency cash assistance'],['sponsorship','Sponsorship (tuition fee/allowance)'],['parents','Parents support'],['gifts-tithes','Gifts & tithings']]},
- {id:'big',name:'Big ticket expenses',cats:[['travel','Travel'],['furniture','Furniture, fixtures & equipment'],['luxury','Signature bag, watch & shoes'],['cars','Cars'],['reno','Renovations']]},
+ {id:'big',name:'Big ticket expenses',cats:[['travel','Travel'],['furniture','Furniture, fixtures, equipment & gadgets'],['luxury','Signature bag, watch & shoes'],['cars','Cars'],['reno','Renovations']]},
  {id:'official',name:'Other: official only',cats:[['staff-meals','Meals with staff & customers'],['apps','Apps subscription'],['office','Office matters expenses']]}
 ];
 const ACCOUNTS=['Cash','GCash','BDO Personal','UnionBank Personal','BPI Joint Account','BDO Joint Account','Rewards Platinum Mastercard','Cashback Platinum Mastercard','BDO Platinum Mastercard','BPI Visa Signature'];
-/* Ruth's usual merchants (from EXPENSES CATEGORIES.docx, one name per merchant, branches merged) */
-const PRESET_DESCS=['Adobe','Agoda','Amazon','Anker','Ansons','Anthropic (Claude)','Apple (App Store / iCloud)','Army Navy','Asian Hospital','Asian Pharma',
- 'B25 Drama','Booking.com','Brent International School','Brick Corner','Cafe Mary Grace','Caltex','Canva','Cathay Pacific','Chatterbox','Chili\'s',
- 'China Ticket Online','Chubb Insurance','Classic Savory','Coco Ichibanya','Cotton On','Datablitz','Decathlon','Dior','Exquisite Manila','Fully Booked',
- 'Grab','Hamleys','Healthy Options','Heybo','Heyday','Honolulu Cafe','Italianni\'s','Kids Depot','KKV','Lazada',
- 'Lead Empire Co','Lumi app','Makan Makan Singapore','Massimo Dutti','Medexpress Drugstore','Mercury Drug','Meralco','Modern Shang','Muji','Nanyang Kopitiam',
- 'Northpark','Oldtown White Coffee','Online Bills Payment','OpenAI (ChatGPT)','Pancake House','Paradise Dynasty','Paramount Life','Paul Boulangerie','PC Express','Persia Grill',
- 'Petron','Pink\'s Hot Dogs','Power Mac Center','Pru Life UK','QuickBooks (Intuit)','Ramen Ron','Red Lotus','Red Ribbon','Rustan\'s Department Store','Shell',
- 'SM Store','SM Supermarket','South Supermarket','St. Luke\'s Medical Center (SLMC)','Tartufo Ristorante','The Fort Residences','The List (BHS)','The Marketplace','The Underbelly','Tim Ho Wan',
- 'TMP 8 Forbes Town Road','Tuan Tuan','Unicity','Vercel','Via Mare','Virginia\'s Bistro','Wilcon Depot',
- /* online shops (Shopify "SP …" charges) */
- 'Alma Pure Ritual','Asarai','Aveleya','Cellumove','Groundingwell','Kallistia','Kivora','Momenta Gifts','NMYMY','Peaksta',
- 'Restoradaily','Saybeam','Skult','Skulta','The Purest Co'];
+/* Ruth's usual merchants: [name, default category id, ask each time (1 = highlight red on import), words that identify it on a statement]
+   (from EXPENSES/Merchant categories (review).xlsx) */
+const MERCHANTS=[
+ ["Adobe","apps",0,["ADOBE"]],
+ ["Agoda","travel",0,["AGODA"]],
+ ["Amazon","shopping",1,["AMAZON","AMZN"]],
+ ["Anker","furniture",1,["ANKER"]],
+ ["Ansons","furniture",1,["ANSON"]],
+ ["Anthropic (Claude)","apps",0,["ANTHROPIC"]],
+ ["Apple (App Store / iCloud)","apps",0,["APPLE.COM"]],
+ ["Army Navy","meals",0,["ARMYNAVY","ARMY NAVY"]],
+ ["Asian Hospital","hospital",0,["ASIAN HOSPITAL"]],
+ ["Asian Pharma","meds",0,["ASIAN PHARMA"]],
+ ["B25 Drama","movies",0,["B25DRAMA"]],
+ ["Booking.com","travel",0,["BOOKING.COM"]],
+ ["Brent International School","tuition",1,["BRENT INTERNATIONAL"]],
+ ["Brick Corner","meals",0,["BRICK CORNER"]],
+ ["Cafe Mary Grace","meals",0,["MARY GRACE","MG SM AURA"]],
+ ["Caltex","fuel",0,["CALTEX"]],
+ ["Canva","apps",0,["CANVA"]],
+ ["Cathay Pacific","travel",0,["CATHAY"]],
+ ["Chatterbox","meals",0,["CHATTERBOX"]],
+ ["Chili's","meals",0,["CHILIS"]],
+ ["China Ticket Online","travel",0,["CHINATICKET"]],
+ ["Chubb Insurance","travel",0,["CHUBB"]],
+ ["Classic Savory","meals",0,["CLASSIC SAVORY"]],
+ ["Coco Ichibanya","meals",0,["COCO ICHIBANYA"]],
+ ["Cotton On","shopping",0,["COTTON ON"]],
+ ["Datablitz","office",1,["DATABLITZ"]],
+ ["Decathlon","shopping",0,["DECATHLON"]],
+ ["Dior","luxury",0,["DIOR"]],
+ ["Exquisite Manila","",1,["EXQUISITE MANILA"]],
+ ["Fully Booked","books",0,["FULLY BOOKED"]],
+ ["Grab","public",0,["GRAB"]],
+ ["Hamleys","kids-shop",0,["HAMLEYS"]],
+ ["Healthy Options","vitamins",0,["HEALTHY OPTIONS"]],
+ ["Heybo","meals",0,["HEYBO"]],
+ ["Heyday","groceries",0,["HEYDAY"]],
+ ["Honolulu Cafe","meals",0,["HONOLULU CAFE"]],
+ ["Italianni's","meals",0,["ITALIANNI"]],
+ ["Kids Depot","kids-shop",0,["KIDS DEPOT"]],
+ ["KKV","",1,["KKV"]],
+ ["Lazada","hh-shop",1,["LAZADA"]],
+ ["Lead Empire Co","office",0,["LEAD EMPIRE"]],
+ ["Lumi app","apps",0,["LUMI-APP"]],
+ ["Makan Makan Singapore","meals",0,["MAKAN MAKAN"]],
+ ["Massimo Dutti","shopping",0,["MASSIMO DUTTI"]],
+ ["Medexpress Drugstore","meds",0,["MEDEXPRESS"]],
+ ["Mercury Drug","meds",0,["MERCURYDRUG","MERCURY DRUG"]],
+ ["Meralco","electric",0,["MERALCO"]],
+ ["Modern Shang","meals",0,["MODERN SHANG"]],
+ ["Muji","hh-shop",0,["MUJI"]],
+ ["Nanyang Kopitiam","meals",0,["NANYANG"]],
+ ["Northpark","meals",0,["NORTHPARK"]],
+ ["Oldtown White Coffee","meals",0,["OLDTOWN"]],
+ ["Online Bills Payment","electric",0,["ONLINE BILLS PAYMENT"]],
+ ["OpenAI (ChatGPT)","apps",0,["OPENAI","CHATGPT"]],
+ ["Pancake House","meals",0,["PANCAKE HOUSE"]],
+ ["Paradise Dynasty","meals",0,["PARADISE DYNASTY"]],
+ ["Paramount Life","life-ins",0,["PARAMOUNT LIFE"]],
+ ["Paul Boulangerie","meals",0,["PAUL BOULANGERIE"]],
+ ["PC Express","furniture",1,["PC EXPRESS","PCX"]],
+ ["Persia Grill","meals",0,["PERSIA GRILL"]],
+ ["Petron","fuel",0,["PETRON"]],
+ ["Pink's Hot Dogs","meals",0,["PINKS HOTDOGS"]],
+ ["Power Mac Center","furniture",1,["POWER MAC"]],
+ ["Pru Life UK","life-ins",0,["PRU LIFE"]],
+ ["QuickBooks (Intuit)","apps",0,["QBOOKS","INTUIT"]],
+ ["Ramen Ron","meals",0,["RAMEN RON"]],
+ ["Red Lotus","meals",0,["RED LOTUS"]],
+ ["Red Ribbon","meals",0,["RED RIBBON"]],
+ ["Rustan's Department Store","shopping",1,["RUSTAN"]],
+ ["Shell","fuel",0,["SHELL"]],
+ ["SM Store","shopping",1,["SM STORE"]],
+ ["SM Supermarket","groceries",0,["SM SUPERMARKET"]],
+ ["South Supermarket","groceries",0,["SOUTH SPRMRKT","SOUTH SUPERMARKET"]],
+ ["St. Luke's Medical Center (SLMC)","hospital",0,["SLMC"]],
+ ["Tartufo Ristorante","meals",0,["TARTUFO"]],
+ ["The Fort Residences","assoc",1,["FORT RESIDENCES"]],
+ ["The List (BHS)","spa",0,["THE LIST"]],
+ ["The Marketplace","groceries",0,["MARKETPLACE"]],
+ ["The Underbelly","meals",0,["UNDERBELLY"]],
+ ["Tim Ho Wan","meals",0,["TIM HO WAN","TIMHOWAN"]],
+ ["TMP 8 Forbes Town Road","groceries",0,["FORBES TOWN"]],
+ ["Tuan Tuan","meals",0,["TUAN TUAN"]],
+ ["Unicity","vitamins",0,["UNICITY"]],
+ ["Vercel","apps",0,["VERCEL"]],
+ ["Via Mare","meals",0,["VIA MARE"]],
+ ["Virginia's Bistro","meals",0,["VIRGINIAS BISTRO"]],
+ ["Wilcon Depot","hh-maint",0,["WILCON"]],
+ ["Alma Pure Ritual","shopping",1,["ALMA PURE"]],
+ ["Asarai","shopping",1,["ASARAI"]],
+ ["Aveleya","shopping",1,["AVELEYA"]],
+ ["Cellumove","shopping",1,["CELLUMOVE"]],
+ ["Groundingwell","shopping",1,["GROUNDINGWELL"]],
+ ["Kallistia","shopping",1,["KALLISTIA"]],
+ ["Kivora","shopping",1,["KIVORA"]],
+ ["Momenta Gifts","shopping",1,["MOMENTA"]],
+ ["NMYMY","shopping",1,["NMYMY"]],
+ ["Peaksta","shopping",1,["PEAKSTA"]],
+ ["Restoradaily","shopping",1,["RESTORADAILY"]],
+ ["Saybeam","shopping",1,["SAYBEAM"]],
+ ["Skult","shopping",1,["SKULT"]],
+ ["Skulta","shopping",1,["SKULTA"]],
+ ["The Purest Co","vitamins",1,["PUREST CO"]]
+];
+const PRESET_DESCS=MERCHANTS.map(m=>m[0]);
+const squash=t=>String(t||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const MKEYS=MERCHANTS.flatMap(m=>[m[0],...m[3]].map(k=>({k:squash(k),m}))).filter(x=>x.k.length>=3).sort((a,b)=>b.k.length-a.k.length);
+/* the merchant whose longest keyword appears in the text, e.g. "PETRON SLEX, LAGUNA, PHL" -> Petron */
+function matchMerchant(text){const t=squash(text);if(!t)return null;const hit=MKEYS.find(x=>t.includes(x.k));return hit?{name:hit.m[0],cat:hit.m[1],ask:!!hit.m[2]}:null}
 const CAT={};GROUPS.forEach(g=>g.cats.forEach(([id,name])=>CAT[id]={id,name,group:g}));
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -329,18 +456,21 @@ function useLocal(text){
   store.mode='local';
   try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{}}}catch(e){store.mode='memory'}
   S.loaded=true;document.body.classList.remove('locked');
+  cleanUp().catch(()=>{});
   setStatus('local',store.mode==='local'?(text||'Saved in this browser only, not synced to your other devices'):'Not saving: this view cannot store data');
   render();
 }
 function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget}))}catch(e){setStatus('bad','Could not save in this browser')}}}
-const toRow=x=>({id:x.id,user_id:store.user.id,date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts});
-const fromRow=r=>({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts});
+/* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
+const toRow=x=>Object.assign({id:x.id,user_id:store.user.id,date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
+const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{});
 async function fetchAll(){
-  const rows=[];
-  for(let from=0;;from+=1000){
-    const {data,error}=await store.sb.from('expenses').select('id,date,cat,descr,amt,acct,notes,ts').order('date').order('id').range(from,from+999);
-    if(error)throw error;rows.push(...data);if(data.length<1000)break;
-  }
+  let rows=[];
+  const page=async cols=>{rows=[];for(let from=0;;from+=1000){
+    const {data,error}=await store.sb.from('expenses').select(cols).order('date').order('id').range(from,from+999);
+    if(error)throw error;rows.push(...data);if(data.length<1000)break}};
+  try{await page('id,date,cat,descr,amt,acct,notes,ts,receipt_path');store.hasRp=true}
+  catch(e){await page('id,date,cat,descr,amt,acct,notes,ts');store.hasRp=false}
   const {data:b,error:e2}=await store.sb.from('budgets').select('cat,amount');if(e2)throw e2;
   const months={},budget={};
   rows.forEach(r=>{const x=fromRow(r),m=x.date.slice(0,7);(months[m]||(months[m]=[])).push(x)});
@@ -375,7 +505,9 @@ async function startCloud(session){
   document.body.classList.remove('locked');$('#v-login').hidden=true;
   setStatus('','Opening your saved expenses…');render();
   try{await refresh()}
-  catch(e){console.error(e);useLocal('Could not reach your account. Saved in this browser only, not synced to your other devices')}
+  catch(e){console.error(e);useLocal('Could not reach your account. Saved in this browser only, not synced to your other devices');return}
+  await loadInbox();
+  cleanUp().catch(e=>console.error('clean-up',e));
 }
 async function initStore(){
   let cfg=null;
@@ -441,7 +573,7 @@ function renderLog(items){
   const rows=items.map((x,i)=>({x,n:i+1})).filter(({x})=>(!S.fltAcct||x.acct===S.fltAcct)&&(!t||x.desc.toLowerCase().includes(t)||(x.notes||'').toLowerCase().includes(t)));
   if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty">'+(items.length?'No items match this search or account.':'Nothing logged for '+monthName(S.month)+' yet. Add the first item above.')+'</td></tr>';return}
   const filtered=rows.length!==items.length;
-  body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+'</td><td style="white-space:nowrap">'+(x.demo?'<span class="pill none">Example</span>':'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
+  body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+'</td><td style="white-space:nowrap">'+(x.demo?'<span class="pill none">Example</span>':(x.rp?'<button class="btn link" data-rcpt="'+esc(x.rp)+'">Receipt</button>':'')+'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
     +'<tr class="totalrow"><td colspan="4">'+(filtered?'Total of '+rows.length+' shown':'Month total')+'</td><td class="num r">'+fmt(sum(rows.map(r=>r.x)))+'</td><td colspan="3"></td></tr>';
 }
 function findItem(id){for(const m in S.months){const x=(S.months[m]||[]).find(i=>i.id===id);if(x)return x}return null}
@@ -467,13 +599,14 @@ $('#form').addEventListener('submit',e=>{
   if(!(amt>0))return formMsg('Enter the amount, more than zero.');
   if(!acct)return formMsg('Choose the account you paid from.');
   const old=S.editing?findItem(S.editing):null;
-  upsert({id:old?old.id:newId(),date,cat,desc,amt:Math.round(amt*100)/100,acct,notes,ts:old?old.ts:Date.now()},old);
+  upsert(Object.assign({id:old?old.id:newId(),date,cat,desc,amt:Math.round(amt*100)/100,acct,notes,ts:old?old.ts:Date.now()},old&&old.rp?{rp:old.rp}:{}),old);
   S.month=date.slice(0,7);resetForm(true);formMsg(old?'Changes saved.':'Added. '+desc+', '+fmt(amt)+'.',true);render();$('#fDesc').focus();
 });
 $('#cancelEdit').addEventListener('click',()=>{resetForm();formMsg('')});
 $('#fDate').addEventListener('input',setDayHint);
 $('#logBody').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.rcpt)openReceipt(b.dataset.rcpt);
   if(b.dataset.edit){const x=findItem(b.dataset.edit);if(!x)return;S.editing=x.id;$('#fDate').value=x.date;$('#fCat').value=x.cat;$('#fDesc').value=x.desc;$('#fAmt').value=x.amt;$('#fAcct').value=x.acct;$('#fNotes').value=x.notes||'';setDayHint();$('#formTitle').textContent='Edit item';$('#addBtn').textContent='Save changes';$('#cancelEdit').hidden=false;formMsg('');$('#form').scrollIntoView({block:'center'});$('#fDesc').focus()}
   if(b.dataset.del){const x=findItem(b.dataset.del);if(!x)return;const m=x.date.slice(0,7);S.months[m]=S.months[m].filter(i=>i.id!==x.id);dbDelete(x.id);if(S.editing===x.id)resetForm();render();
     toast('Deleted "'+x.desc+'".',()=>{(S.months[m]||(S.months[m]=[])).push(x);dbUpsert(x);render()})}
@@ -497,7 +630,9 @@ function showSuggest(){
   $('#suggest').hidden=false;$('#fDesc').setAttribute('aria-expanded','true');
 }
 function pickSuggest(o){
-  if(o.preset){$('#fDesc').value=o.desc;hideSuggest();formMsg('');($('#fCat').value?$('#fAmt'):$('#fCat')).focus();return}
+  if(o.preset){$('#fDesc').value=o.desc;hideSuggest();
+    const mm=matchMerchant(o.desc);if(mm&&CAT[mm.cat]){$('#fCat').value=mm.cat;formMsg(mm.ask?'Category filled in. This shop can be more than one category, so check it.':'',true)}else formMsg('');
+    ($('#fCat').value?$('#fAmt'):$('#fCat')).focus();return}
   $('#fDesc').value=o.desc;if(CAT[o.cat])$('#fCat').value=o.cat;if(ACCOUNTS.includes(o.acct))$('#fAcct').value=o.acct;if(!$('#fAmt').value)$('#fAmt').value=o.amt;hideSuggest();formMsg('Filled in from last time. Check the amount.',true);$('#fAmt').focus();$('#fAmt').select()}
 $('#fDesc').addEventListener('input',showSuggest);
 $('#fDesc').addEventListener('focus',showSuggest);
@@ -511,6 +646,7 @@ $('#fDesc').addEventListener('keydown',e=>{
 $('#fDesc').addEventListener('blur',()=>setTimeout(()=>{
   hideSuggest();const o=memory().get($('#fDesc').value.trim().toLowerCase());
   if(o&&!$('#fCat').value){if(CAT[o.cat])$('#fCat').value=o.cat;if(!$('#fAcct').value&&ACCOUNTS.includes(o.acct))$('#fAcct').value=o.acct}
+  else if(!o&&!$('#fCat').value){const mm=matchMerchant($('#fDesc').value);if(mm&&CAT[mm.cat])$('#fCat').value=mm.cat}
 },150));
 $('#suggest').addEventListener('mousedown',e=>{e.preventDefault();const b=e.target.closest('button');if(b)pickSuggest(sugg[+b.dataset.i])});
 
@@ -590,7 +726,8 @@ function rowsToItems(rows){
     const date=parseDate(g('date')),amt=parseAmt(g('amt')),desc=g('desc');
     if(!date||!(amt>0))continue;
     const m=mem.get(desc.toLowerCase());
-    out.push({date,desc:desc||'Imported item',amt:Math.round(amt*100)/100,cat:matchCat(g('cat'))||(m?m.cat:''),acct:matchAcct(g('acct'))||(m?m.acct:''),notes:g('notes')});
+    const fc=matchCat(g('cat'));
+    out.push({date,desc:desc||'Imported item',amt:Math.round(amt*100)/100,cat:fc||(m?m.cat:''),catFromFile:!!fc,acct:matchAcct(g('acct'))||(m?m.acct:''),notes:g('notes')});
   }
   return out;
 }
@@ -645,7 +782,7 @@ $('#fileInput').addEventListener('change',async e=>{
     else if(isImg){let data;try{data=await shrinkImage(file,2000)}catch(_){throw{code:'file_rejected'}}items=await extractWithClaude('image',data,'image/jpeg',name)}
     else items=rowsToItems(parseCSV(await file.text()));
     if(!items.length){formMsg(slow?'No expenses were found in '+name+'.':'No expenses found in that file. It needs a date column and an amount column; description, category, account and notes are optional.');return}
-    S.imp=items.slice(0,300);formMsg('');renderImport();$('#importCard').scrollIntoView({block:'start'});
+    S.imp=applyMerchants(items.slice(0,300));formMsg('');renderImport();$('#importCard').scrollIntoView({block:'start'});
   }catch(err){
     const c=err&&err.code;
     if(c==='scan_unavailable')formMsg('Reading photos, PDFs and Word documents without a table needs receipt reading switched on (see SETUP.md, step 5). Excel, CSV and Word tables still work.');
@@ -660,27 +797,192 @@ $('#fileInput').addEventListener('change',async e=>{
   }finally{btn.disabled=false;btn.textContent='Import a file'}
 });
 function renderImport(){
+  if(S.inbox&&S.inbox.length)renderInbox();
   const card=$('#importCard');if(!S.imp||!S.imp.length){card.hidden=true;S.imp=null;return}
   card.hidden=false;
-  const need=S.imp.filter(r=>!r.cat||!r.acct).length;
-  $('#impInfo').textContent=S.imp.length+' items · '+(need?need+' still need a category or account':'all ready');
-  $('#impBody').innerHTML=S.imp.map((r,i)=>'<tr'+((!r.cat||!r.acct)?' class="over"':'')+'><td style="white-space:nowrap">'+dayShort(r.date)+'</td><td>'+esc(r.desc)+'</td><td class="num r">'+fmt(r.amt)+'</td><td><select data-i="'+i+'" data-k="cat" aria-label="Category">'+optsCat(r.cat)+'</select></td><td><select data-i="'+i+'" data-k="acct" aria-label="Account">'+optsAcct(r.acct,'Choose an account')+'</select></td><td><button class="btn link" data-rm="'+i+'">Remove</button></td></tr>').join('');
+  const need=S.imp.filter(r=>!r.cat||!r.acct).length,ask=S.imp.filter(r=>r.ask).length;
+  $('#impInfo').textContent=S.imp.length+' items · '+(need||ask?[need?need+' still need a category or account':'',ask?ask+' in red to confirm (shops that can be more than one category)':''].filter(Boolean).join(' · '):'all ready');
+  $('#impAcct').innerHTML=optsAcct('','Set the account for every row');
+  $('#impBody').innerHTML=S.imp.map((r,i)=>'<tr'+(r.ask?' class="ask"':(!r.cat||!r.acct)?' class="over"':'')+'><td style="white-space:nowrap">'+dayShort(r.date)+'</td><td>'+esc(r.desc)+(r.raw?'<span class="raw">'+esc(r.raw)+'</span>':'')+'</td><td class="num r">'+fmt(r.amt)+'</td><td><select data-i="'+i+'" data-k="cat" aria-label="Category">'+optsCat(r.cat)+'</select></td><td><select data-i="'+i+'" data-k="acct" aria-label="Account">'+optsAcct(r.acct,'Choose an account')+'</select></td><td style="white-space:nowrap">'+(r.ask?'<button class="btn link" data-ok="'+i+'">Confirm</button>':'')+'<button class="btn link" data-rm="'+i+'">Remove</button></td></tr>').join('');
 }
-$('#impBody').addEventListener('change',e=>{const s=e.target;if(s.dataset.k){const r=S.imp[+s.dataset.i];r[s.dataset.k]=s.value;
+/* statement and receipt lines: rename to Ruth's merchant name and fill its category (her last choice first) */
+function applyMerchants(items){
+  const mem=memory();
+  items.forEach(it=>{const mm=matchMerchant(it.desc);if(!mm)return;
+    if(it.desc!==mm.name){it.raw=it.desc;it.desc=mm.name}
+    if(it.catFromFile)return;
+    const o=mem.get(mm.name.toLowerCase());
+    it.cat=(o&&CAT[o.cat]?o.cat:'')||(CAT[mm.cat]?mm.cat:'')||it.cat||'';
+    if(!it.acct&&o&&ACCOUNTS.includes(o.acct))it.acct=o.acct;
+    it.ask=mm.ask});
+  return items;
+}
+$('#impAcct').addEventListener('change',e=>{const v=e.target.value;if(v&&S.imp){S.imp.forEach(r=>r.acct=v);renderImport()}});
+$('#impBody').addEventListener('change',e=>{const s=e.target;if(s.dataset.k){const r=S.imp[+s.dataset.i];r[s.dataset.k]=s.value;if(s.dataset.k==='cat'&&s.value)r.ask=false;
   if(s.dataset.k==='cat'&&s.value)S.imp.forEach(o=>{if(!o.cat&&o.desc.toLowerCase()===r.desc.toLowerCase())o.cat=s.value});
   if(s.dataset.k==='acct'&&s.value)S.imp.forEach(o=>{if(!o.acct&&o.desc.toLowerCase()===r.desc.toLowerCase())o.acct=s.value});
   renderImport()}});
-$('#impBody').addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(b){S.imp.splice(+b.dataset.rm,1);renderImport()}});
+$('#impBody').addEventListener('click',e=>{const ok=e.target.closest('[data-ok]');if(ok){const r=S.imp[+ok.dataset.ok];if(r){if(!r.cat){$('#impMsg').textContent='Pick a category for that row first.';return}r.ask=false;renderImport()}return}
+  const b=e.target.closest('[data-rm]');if(b){S.imp.splice(+b.dataset.rm,1);renderImport()}});
 $('#impDiscard').addEventListener('click',()=>{S.imp=null;renderImport();$('#impMsg').textContent=''});
 $('#impAdd').addEventListener('click',()=>{
-  const ready=S.imp.filter(r=>r.cat&&r.acct),rest=S.imp.filter(r=>!r.cat||!r.acct);
-  if(!ready.length){$('#impMsg').textContent='Pick a category and an account for the marked rows first.';return}
+  const ready=S.imp.filter(r=>r.cat&&r.acct&&!r.ask),rest=S.imp.filter(r=>!r.cat||!r.acct||r.ask);
+  if(!ready.length){$('#impMsg').textContent='Pick a category and an account for the marked rows, and confirm the red ones, first.';return}
   let t=Date.now();const added=[];
-  ready.forEach(r=>{const m=r.date.slice(0,7),x={id:newId(),date:r.date,cat:r.cat,desc:r.desc.slice(0,120),amt:r.amt,acct:r.acct,notes:(r.notes||'').slice(0,200),ts:t++};(S.months[m]||(S.months[m]=[])).push(x);added.push(x)});
+  ready.forEach(r=>{const m=r.date.slice(0,7),x={id:newId(),date:r.date,cat:r.cat,desc:r.desc.slice(0,120),amt:r.amt,acct:r.acct,notes:(r.notes||'').slice(0,200),ts:t++};if(r.rp)x.rp=r.rp;(S.months[m]||(S.months[m]=[])).push(x);added.push(x)});
   dbInsertMany(added);
+  /* a receipt leaves the inbox once everything read from it is in the log; its photo stays with the expense */
+  const doneR=[...new Set(ready.map(r=>r.rid).filter(Boolean))].filter(id=>!rest.some(r=>r.rid===id));
+  if(doneR.length){S.inbox=S.inbox.filter(r=>!doneR.includes(r.id));persist(()=>store.sb.from('receipts').delete().in('id',doneR))}
   S.month=ready[ready.length-1].date.slice(0,7);S.imp=rest;
-  $('#impMsg').textContent=rest.length?'Added '+ready.length+'. The marked rows still need a category or account.':'';
+  $('#impMsg').textContent=rest.length?'Added '+ready.length+'. The rows left need a category or account, or your confirmation.':'';
   renderImport();render();toast('Added '+ready.length+' imported '+(ready.length===1?'item':'items')+'.');
+});
+
+/* ---------- receipts inbox (photos in Supabase Storage, read later) ---------- */
+S.inbox=[];
+const bucket=()=>store.sb.storage.from('receipts');
+const b64Blob=b64=>fetch('data:image/jpeg;base64,'+b64).then(r=>r.blob());
+const longDate=d=>toDate(d).toLocaleDateString('en-PH',{day:'numeric',month:'short',year:'numeric'});
+async function signInbox(list){
+  const need=list.filter(r=>!r.url);if(!need.length)return;
+  const {data}=await bucket().createSignedUrls(need.map(r=>r.path),3600);
+  (data||[]).forEach(s=>{const r=need.find(x=>x.path===s.path);if(r&&s.signedUrl)r.url=s.signedUrl});
+}
+async function loadInbox(){
+  if(store.mode!=='cloud'){renderInbox();return}
+  const {data,error}=await store.sb.from('receipts').select('id,path,created_at').order('created_at');
+  store.inbox=!error;S.inbox=error?[]:data.map(r=>({...r,state:'new'}));
+  if(!error)await signInbox(S.inbox).catch(()=>{});
+  renderInbox();
+}
+function renderInbox(){
+  const card=$('#inboxCard');card.hidden=store.mode!=='cloud';if(card.hidden)return;
+  $('#inboxUpload').hidden=!store.inbox;
+  if(!store.inbox){$('#inboxInfo').textContent='To switch on the inbox, run supabase/receipts.sql in Supabase (see SETUP.md).';$('#inboxList').innerHTML='';$('#inboxReadAll').hidden=true;return}
+  const n=S.inbox.length,inCheck=new Set((S.imp||[]).map(r=>r.rid).filter(Boolean));
+  $('#inboxInfo').textContent=n?(n+(n===1?' receipt':' receipts')+' waiting to be added'+(store.scan?'':'. Reading photos needs ANTHROPIC_API_KEY (SETUP.md step 5).')):'Take photos of your receipts any time, upload them here, and add them to the log when it suits you.';
+  $('#inboxReadAll').hidden=!(store.scan&&S.inbox.filter(r=>r.state==='new'&&!inCheck.has(r.id)).length>1);
+  $('#inboxList').innerHTML=S.inbox.map((r,i)=>'<div class="rc">'+(r.url?'<img src="'+esc(r.url)+'" alt="Receipt photo" data-view="'+i+'">':'<div class="small muted">Photo</div>')
+    +'<span class="small muted">Uploaded '+longDate(r.created_at.slice(0,10))+'</span>'
+    +(inCheck.has(r.id)?'<span class="small">In the check table below</span>':r.state==='reading'?'<span class="small">Reading…</span>':'')
+    +'<div class="row">'+(store.scan&&!inCheck.has(r.id)&&r.state!=='reading'?'<button type="button" class="btn link" data-read="'+i+'">'+(r.state==='read'?'Read again':'Read &amp; check')+'</button>':'')
+    +'<button type="button" class="btn link" data-drop="'+i+'">Delete</button></div></div>').join('');
+}
+function inboxMsg(t){$('#inboxMsg').textContent=t||''}
+$('#inboxUpload').addEventListener('click',()=>$('#inboxInput').click());
+$('#inboxInput').addEventListener('change',async e=>{
+  const files=[...e.target.files];e.target.value='';if(!files.length||!store.inbox)return;
+  const btn=$('#inboxUpload');btn.disabled=true;let ok=0,bad=0;
+  for(let i=0;i<files.length;i++){
+    inboxMsg('Uploading '+(i+1)+' of '+files.length+'…');
+    try{
+      const blob=await b64Blob(await shrinkImage(files[i],1600));
+      const id=newId(),path=store.user.id+'/'+today()+'/'+id+'.jpg';
+      const up=await bucket().upload(path,blob,{contentType:'image/jpeg'});if(up.error)throw up.error;
+      const ins=await store.sb.from('receipts').insert({id,user_id:store.user.id,path});
+      if(ins.error){await bucket().remove([path]);throw ins.error}
+      S.inbox.push({id,path,created_at:new Date().toISOString(),state:'new'});ok++;
+    }catch(err){console.error(err);bad++}
+  }
+  await signInbox(S.inbox).catch(()=>{});
+  btn.disabled=false;renderInbox();
+  inboxMsg((ok?'Uploaded '+ok+(ok===1?' receipt.':' receipts.'):'')+(bad?' '+bad+' could not be uploaded. Use JPG or PNG photos and check your connection.':''));
+});
+async function readReceipt(r){
+  r.state='reading';renderInbox();
+  try{
+    const {data:blob,error}=await bucket().download(r.path);if(error)throw{code:'gone'};
+    const items=await extractWithClaude('image',await fileB64(blob),'image/jpeg','receipt photo');
+    if(!items.length){r.state='read';inboxMsg('Nothing could be read from that photo. Type it in with the form above, then delete the photo.');return}
+    applyMerchants(items).forEach(it=>{it.rid=r.id;it.rp=r.path});
+    r.state='read';S.imp=(S.imp||[]).concat(items);inboxMsg('');renderImport();
+  }catch(err){
+    r.state='new';const c=err&&err.code;
+    inboxMsg(c==='scan_unavailable'?'Reading photos is not switched on yet (SETUP.md step 5).':c==='not_signed_in'?'Your sign-in has expired. Reload the page and sign in again.':c==='rate_limited'?'Claude is busy or the usage limit was reached. Try again later.':c==='gone'?'That photo could not be opened.':'That receipt could not be read. Try again, or type it in with the form above.');
+  }finally{renderInbox()}
+}
+$('#inboxReadAll').addEventListener('click',async()=>{
+  const b=$('#inboxReadAll');b.disabled=true;
+  const inCheck=new Set((S.imp||[]).map(r=>r.rid));
+  for(const r of S.inbox.filter(r=>r.state==='new'&&!inCheck.has(r.id)))await readReceipt(r);
+  b.disabled=false;if(S.imp&&S.imp.length)$('#importCard').scrollIntoView({block:'start'});
+});
+$('#inboxList').addEventListener('click',async e=>{
+  const v=e.target.closest('[data-view]');if(v){const r=S.inbox[+v.dataset.view];if(r&&r.url)window.open(r.url,'_blank','noopener');return}
+  const rd=e.target.closest('[data-read]');if(rd){const r=S.inbox[+rd.dataset.read];if(r){await readReceipt(r);if(S.imp&&S.imp.some(x=>x.rid===r.id))$('#importCard').scrollIntoView({block:'start'})}return}
+  const dr=e.target.closest('[data-drop]');if(dr){const r=S.inbox[+dr.dataset.drop];if(!r||!confirm('Delete this receipt photo? This cannot be undone.'))return;
+    S.inbox=S.inbox.filter(x=>x!==r);if(S.imp){S.imp=S.imp.filter(x=>x.rid!==r.id);renderImport()}renderInbox();
+    persist(async()=>{const a=await store.sb.from('receipts').delete().eq('id',r.id);if(a.error)return a;return bucket().remove([r.path])})}
+});
+async function openReceipt(path){
+  const w=window.open('','_blank');
+  const {data,error}=await bucket().createSignedUrl(path,600);
+  if(error||!data){if(w)w.close();alert('That receipt photo is no longer available.');return}
+  if(w)w.location.href=data.signedUrl;else location.href=data.signedUrl;
+}
+
+/* ---------- keeping limits: photos 1 year, expenses 3 years; nothing is deleted until Ruth confirms ---------- */
+const due={exp:[],photos:[],expCut:'',photoCut:''};
+async function cleanUp(){
+  const t=today(),y=+t.slice(0,4);
+  due.expCut=(y-3)+t.slice(4);
+  const d=toDate(t);d.setDate(d.getDate()-365);due.photoCut=ymd(d);
+  due.exp=[];Object.values(S.months).forEach(a=>(a||[]).forEach(x=>{if(x.date<due.expCut)due.exp.push(x)}));
+  due.photos=[];
+  if(store.mode==='cloud'&&store.inbox){
+    const {data:days}=await bucket().list(store.user.id,{limit:1000});
+    for(const f of (days||[]).filter(f=>/^\d{4}-\d{2}-\d{2}$/.test(f.name)&&f.name<due.photoCut)){
+      const {data:files}=await bucket().list(store.user.id+'/'+f.name,{limit:1000});
+      (files||[]).forEach(p=>due.photos.push(store.user.id+'/'+f.name+'/'+p.name));
+    }
+  }
+  renderKeep();
+}
+function renderKeep(){
+  const n=due.exp.length,m=due.photos.length,show=(n||m)&&!store.keepLater;
+  $('#keepBanner').hidden=!show;if(!show)return;
+  const parts=[];
+  if(n)parts.push(n+(n===1?' expense':' expenses')+' dated before '+longDate(due.expCut)+' '+(n===1?'is':'are')+' past the 3-year limit');
+  if(m)parts.push(m+' receipt '+(m===1?'photo':'photos')+' uploaded before '+longDate(due.photoCut)+' '+(m===1?'is':'are')+' past the 1-year limit');
+  $('#keepText').textContent=parts.join(', and ')+'. Have you saved your own copy? Nothing is deleted until you confirm.';
+  $('#keepExcel').hidden=!n;$('#keepPhotos').hidden=!m;
+}
+$('#keepLater').addEventListener('click',()=>{store.keepLater=true;renderKeep()});
+$('#keepExcel').addEventListener('click',async()=>{
+  try{
+    if(!window.XLSX)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const rows=due.exp.slice().sort((a,b)=>a.date<b.date?-1:1).map(x=>({Date:x.date,Description:x.desc,Category:(CAT[x.cat]||{}).name||x.cat,Group:((CAT[x.cat]||{}).group||{}).name||'',Amount:x.amt,Account:x.acct,Notes:x.notes||''}));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Expenses');
+    XLSX.writeFile(wb,'Expenses before '+due.expCut+'.xlsx');
+  }catch(e){alert('The Excel file could not be made. Check your connection and try again.')}
+});
+$('#keepPhotos').addEventListener('click',async()=>{
+  const b=$('#keepPhotos');b.disabled=true;const label=b.textContent;
+  try{
+    if(!window.JSZip)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    const zip=new JSZip();
+    for(let i=0;i<due.photos.length;i++){b.textContent='Preparing '+(i+1)+' of '+due.photos.length+'…';const p=due.photos[i];const {data}=await bucket().download(p);if(data)zip.file(p.split('/').slice(1).join('_'),data)}
+    const blob=await zip.generateAsync({type:'blob'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Receipt photos before '+due.photoCut+'.zip';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+  }catch(e){alert('The photos could not be downloaded. Check your connection and try again.')}
+  finally{b.disabled=false;b.textContent=label}
+});
+$('#keepDelete').addEventListener('click',()=>{
+  const n=due.exp.length,m=due.photos.length;
+  const what=[n?n+(n===1?' expense':' expenses'):'',m?m+' receipt '+(m===1?'photo':'photos'):''].filter(Boolean).join(' and ');
+  if(!confirm('Permanently delete '+what+'? Make sure you have saved your own copy. This cannot be undone.'))return;
+  const gone=new Set(due.exp.map(x=>x.id));
+  const paths=new Set(due.photos);due.exp.forEach(x=>{if(x.rp)paths.add(x.rp)});
+  for(const k in S.months)S.months[k]=(S.months[k]||[]).filter(x=>!gone.has(x.id));
+  if(n&&store.mode==='cloud'){const cut=due.expCut;persist(()=>store.sb.from('expenses').delete().lt('date',cut))}else if(n)saveLocal();
+  if(paths.size&&store.mode==='cloud'){
+    const list=[...paths];
+    Object.values(S.months).forEach(a=>(a||[]).forEach(x=>{if(x.rp&&paths.has(x.rp)){x.rp=null;dbUpsert(x)}}));
+    const ids=S.inbox.filter(r=>paths.has(r.path)).map(r=>r.id);S.inbox=S.inbox.filter(r=>!paths.has(r.path));
+    if(ids.length)persist(()=>store.sb.from('receipts').delete().in('id',ids));
+    for(let i=0;i<list.length;i+=100){const chunk=list.slice(i,i+100);persist(()=>bucket().remove(chunk))}
+  }
+  due.exp=[];due.photos=[];renderKeep();renderInbox();render();toast('Deleted '+what+'.');
 });
 
 /* ---------- accounts ---------- */

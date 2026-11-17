@@ -81,6 +81,20 @@ Every import goes to **Check the imported items**, where you pick any missing ca
 - After adding or changing an environment variable in Vercel, go to **Deployments → ⋯ → Redeploy** so it takes effect.
 - Only someone signed in to your app can use the scan, so your key cannot be used by strangers.
 
+## 6. Receipts inbox (snap now, encode later)
+
+1. In Supabase open **SQL Editor → New query**, paste the whole of `supabase/receipts.sql`, and press **Run**. It adds:
+   - a `receipts` table for photos waiting to be added,
+   - a `receipt_path` column on `expenses`, so each expense can keep its photo,
+   - a private storage folder `receipts`, where each login can only see its own photos.
+2. Reload the app. **Receipts inbox** appears on the Expenses log page.
+
+Using it:
+- Take receipt photos with your phone's camera whenever you like. Later, tap **Upload receipts** and choose them from your gallery (several at once is fine). Photos are shrunk to about 0.2–0.3 MB before upload.
+- **Read & check** (or **Read all**) reads each photo with Claude and puts it in the check table. This needs `ANTHROPIC_API_KEY` (step 5). Once added, the photo leaves the inbox and stays linked to the expense: **Receipt** in the log opens it.
+
+Keeping limits: receipt photos are kept for 1 year after upload, expenses for 3 years after their date. When anything passes its limit, a notice at the top of the app offers **Download expenses as Excel** and **Download photos** (a .zip). Nothing is deleted until you press **I have saved my copy, delete them** and confirm. Budgets are monthly amounts per category, not per month, so they are never removed.
+
 ## Differences from spec.md
 
 | Spec | This build |
