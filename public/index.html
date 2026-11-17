@@ -236,7 +236,7 @@ details.day .items div{display:flex;justify-content:space-between;gap:12px}
 .rc img{width:100%;height:150px;object-fit:cover;border-radius:6px;background:var(--rule);cursor:zoom-in}
 .rc .row{gap:4px;flex-wrap:wrap}
 body.locked .app{grid-template-columns:minmax(0,1fr)}
-body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,body.locked #demoBanner,body.locked #keepBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
+body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,body.locked #keepBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
 .signout{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0;text-decoration:underline}
 [hidden]{display:none!important}
 </style>
@@ -287,7 +287,6 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
       <button type="button" class="btn link" id="keepLater">Remind me later</button>
     </div>
   </div>
-  <div class="banner" id="demoBanner" hidden>These are example entries so you can see how each page works. They disappear when you add your first expense.</div>
 
   <!-- SIGN IN -->
   <section id="v-login" class="card login" hidden>
@@ -693,17 +692,13 @@ $('#signOut').addEventListener('click',async()=>{if(store.pending&&!confirm('A c
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&store.mode==='cloud'&&!store.pending)refresh().catch(()=>{})});
 
 /* ---------- data ---------- */
-const EX=[[1,'electric','Electric bill',4850,'BDO Personal'],[2,'groceries','Supermarket run',3620.75,'Cashback Platinum Mastercard'],[3,'fuel','Full tank',2900,'Rewards Platinum Mastercard'],[3,'meals','Coffee with Ana',540,'GCash'],[5,'helper','Helper salary',7000,'Cash'],[6,'wet-market','Saturday market',1850,'Cash'],[8,'phone','Fiber internet',2099,'UnionBank Personal'],[9,'tuition','Tuition instalment',25000,'BPI Joint Account'],[10,'meals','Family dinner',3200,'BPI Visa Signature'],[12,'vitamins','Vitamins refill',1480,'GCash'],[13,'groceries','Supermarket run',2890.5,'Cashback Platinum Mastercard'],[14,'parents','Monthly support',10000,'BDO Joint Account']];
-const EXB={electric:4500,groceries:8000,fuel:4000,meals:3000,helper:7000,'wet-market':3000,phone:2099,tuition:25000,vitamins:1500,parents:10000};
-const hasAny=()=>Object.values(S.months).some(a=>a&&a.length);
-const isDemo=()=>S.loaded&&!hasAny();
+
 function itemsOf(m){
   let a;
-  if(isDemo())a=(m===S.month)?EX.map((e,i)=>({id:'ex'+i,date:m+'-'+pad(e[0]),cat:e[1],desc:e[2],amt:e[3],acct:e[4],notes:'',ts:i,demo:true})):[];
-  else a=(S.months[m]||[]).slice();
+  a=(S.months[m]||[]).slice();
   return a.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:(x.ts||0)-(y.ts||0));
 }
-const budgetNow=()=>(isDemo()&&!Object.keys(S.budget).length)?EXB:S.budget;
+const budgetNow=()=>S.budget;
 function memory(){
   const map=new Map();
   Object.values(S.months).forEach(a=>(a||[]).forEach(x=>{const k=x.desc.trim().toLowerCase();const o=map.get(k);if(!o||(x.ts||0)>=(o.ts||0))map.set(k,{desc:x.desc,cat:x.cat,acct:x.acct,amt:x.amt,ts:x.ts||0,n:(o?o.n:0)+1});else o.n++}));
@@ -722,7 +717,6 @@ function render(){
   const items=itemsOf(S.month);
   $('#monthTotal').textContent=fmt(sum(items));
   $('#totalLabel').textContent='Spent in '+MONTHS[+S.month.slice(5)-1]+' · '+items.length+(items.length===1?' item':' items');
-  $('#demoBanner').hidden=!isDemo();
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.go===S.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   SECTIONS.forEach(s=>$('#v-'+s).hidden=s!==secOf(S.view));
   $('#pageTitle').textContent=TITLES[S.view];
@@ -1014,7 +1008,6 @@ $('#v-income').addEventListener('click',e=>{if(!S.incShow&&e.target.closest('.ma
 $('#incBody').addEventListener('change',e=>{
   const el=e.target;if(!el.dataset.inc)return;
   const amt=Math.round(Math.max(0,parseFloat(el.value)||0)*100)/100;
-  if(isDemo()&&!Object.keys(S.budget).length)S.budget={};
   if(amt>0)S.budget[el.dataset.inc]=amt;else delete S.budget[el.dataset.inc];
   dbBudget(el.dataset.inc,amt);setTimeout(render,0);
 });
@@ -1054,7 +1047,7 @@ function renderLog(items){
   const rows=items.map((x,i)=>({x,n:i+1})).filter(({x})=>(!S.fltAcct||x.acct===S.fltAcct)&&(!t||x.desc.toLowerCase().includes(t)||(x.notes||'').toLowerCase().includes(t)));
   if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty">'+(items.length?'No items match this search or account.':'Nothing logged for '+monthName(S.month)+' yet. Add the first item above.')+'</td></tr>';return}
   const filtered=rows.length!==items.length;
-  body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+'</td><td style="white-space:nowrap">'+(x.demo?'<span class="pill none">Example</span>':(x.rp?'<button class="btn link" data-rcpt="'+esc(x.rp)+'">Receipt</button>':'')+'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
+  body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+'</td><td style="white-space:nowrap">'+((x.rp?'<button class="btn link" data-rcpt="'+esc(x.rp)+'">Receipt</button>':'')+'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
     +'<tr class="totalrow"><td colspan="4">'+(filtered?'Total of '+rows.length+' shown':'Month total')+'</td><td class="num r">'+fmt(sum(rows.map(r=>r.x)))+'</td><td colspan="3"></td></tr>';
 }
 function findItem(id){for(const m in S.months){const x=(S.months[m]||[]).find(i=>i.id===id);if(x)return x}return null}
@@ -1525,7 +1518,6 @@ function renderBudget(items){
 $('#budgetBody').addEventListener('change',e=>{
   const el=e.target;if(!el.dataset.cat)return;
   const v=Math.max(0,parseFloat(el.value)||0);
-  if(isDemo()&&!Object.keys(S.budget).length)S.budget={};
   const amt=Math.round(v*100)/100;
   if(amt>0)S.budget[el.dataset.cat]=amt;else delete S.budget[el.dataset.cat];
   dbBudget(el.dataset.cat,amt);setTimeout(render,0);
@@ -1533,7 +1525,6 @@ $('#budgetBody').addEventListener('change',e=>{
 /* update the Budget tile and totals while typing; saving still happens on change */
 $('#budgetBody').addEventListener('input',e=>{
   const el=e.target;if(!el.dataset.cat)return;
-  if(isDemo()&&!Object.keys(S.budget).length)S.budget={...EXB};
   const amt=Math.round(Math.max(0,parseFloat(el.value)||0)*100)/100;
   if(amt>0)S.budget[el.dataset.cat]=amt;else delete S.budget[el.dataset.cat];
   render();
