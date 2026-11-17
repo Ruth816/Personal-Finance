@@ -131,6 +131,13 @@ body.menu-open{overflow:hidden}
 .payform{background:var(--paper);border-radius:10px;padding:12px}
 .payform .f input,.payform .f select{background:var(--card)}
 tr.unpaid td{color:var(--bad)}
+/* income & expense tracking */
+.ind{display:inline-block;border-radius:6px;padding:2px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.ind.ok{background:var(--good-soft);color:var(--good)} .ind.no{background:var(--bad-soft);color:var(--bad)} .ind.na{color:var(--muted)}
+.mask{color:var(--muted);letter-spacing:.12em}
+.track-t input{width:120px;text-align:right;background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:5px 8px;font-family:var(--mono)}
+.track-t .auto{font-size:11.5px;color:var(--muted);display:block}
+@media (max-width:600px){.track-t thead{display:none}.track-t tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px;padding:10px 0;border-bottom:1px solid var(--rule)}.track-t td{border:0;padding:0;text-align:left!important}.track-t td:first-child{grid-column:1/3;font-weight:600}.track-t td:last-child{grid-column:3;grid-row:1;text-align:right!important}.track-t td[data-l]::before{content:attr(data-l);display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.track-t input{width:100%}.track-t tr.totalrow{border-top:2px solid var(--ink)}}
 table.dues td.acts{white-space:nowrap}
 @media (max-width:600px){table.dues td.acts{white-space:normal}}
 @media (max-width:600px){table.dues thead{display:none}table.dues tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--rule)}table.dues td{border:0;padding:2px 0}table.dues td:nth-child(3),table.dues td:nth-child(4){grid-column:span 2}}
@@ -246,6 +253,7 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
     <a href="#budget" data-go="budget"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Budget tracking</span></a>
     <a href="#rented" data-go="rented"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M2.5 21h19"/><path d="M8 8h3M8 12h3M8 16h3"/></svg><span>Rented properties</span><span class="badge" id="navRentN" hidden></span></a>
     <a href="#own" data-go="own"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg><span>Own-use properties</span><span class="badge" id="navOwnN" hidden></span></a>
+    <a href="#income" data-go="income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M12 15v2"/></svg><span>Income &amp; expenses</span></a>
   </nav>
   <div class="side-foot">rlw-app.com</div>
 </aside>
@@ -324,6 +332,23 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
     </div>
 
     <div class="card" id="rcptLocal" hidden><p class="muted" style="margin:0">The receipts inbox works once you are signed in to your account.</p></div>
+  </section>
+
+  <!-- INCOME & EXPENSES (private: amounts hidden until "Show amounts") -->
+  <section id="v-income" class="stack" hidden>
+    <div class="card row spread">
+      <div><h2 id="incTitle">Income and expense tracking</h2><span class="small muted" id="incHint">Amounts are hidden. They hide again when you leave this page.</span></div>
+      <button type="button" class="btn primary" id="incShow">Show amounts</button>
+    </div>
+    <div class="tiles" id="incTiles"></div>
+    <div class="card stack">
+      <div class="row spread"><h2>Income tracking</h2><span class="small muted">Property = rent marked received on Rented properties</span></div>
+      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Projected</th><th class="r">Actual</th><th class="r">Variance</th><th>Indicator</th></tr></thead><tbody id="incBody"></tbody></table></div>
+    </div>
+    <div class="card stack">
+      <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Projected = Budget tracking · Actual = Expenses log</span></div>
+      <div class="scroll"><table class="track-t"><thead><tr><th>Expenses</th><th class="r">Projected</th><th class="r">Actual</th><th class="r">Variance</th><th>Indicator</th></tr></thead><tbody id="expBody"></tbody></table></div>
+    </div>
   </section>
 
   <!-- PROPERTIES -->
@@ -686,10 +711,10 @@ function memory(){
 /* ---------- shared render ---------- */
 function optsCat(sel){return '<option value="">Choose a category</option>'+GROUPS.map(g=>'<optgroup label="'+esc(g.name)+'">'+g.cats.map(([id,n])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(n)+'</option>').join('')+'</optgroup>').join('')}
 function optsAcct(sel,first){return '<option value="">'+first+'</option>'+ACCOUNTS.map(a=>'<option'+(a===sel?' selected':'')+'>'+esc(a)+'</option>').join('')}
-const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own'];
-const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties'];
+const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income'];
+const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties','income'];
 const secOf=v=>v==='rented'||v==='own'?'properties':v;
-const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties'};
+const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses'};
 function render(){
   $('#monthLabel').textContent=monthName(S.month);
   const items=itemsOf(S.month);
@@ -703,7 +728,7 @@ function render(){
   const ic=$('#importCard'),anchor=S.view==='receipts'?$('#inboxCard'):$('#v-log').firstElementChild;
   if(ic.previousElementSibling!==anchor)anchor.after(ic);
   $('#rcptLocal').hidden=store.mode==='cloud';
-  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{}})[S.view](items);
+  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome})[S.view](items);
   renderProps();
 }
 
@@ -935,6 +960,46 @@ $('#propList').addEventListener('submit',e=>{
   if(paid)paidToast(p,k);
   if(file)attachProof(p,k,rec,file);
 });
+
+/* ---------- income & expense tracking (private page) ----------
+   Typed income is kept with the budgets: 'inc:<row>' = monthly projection, 'inc:<row>:<YYYY-MM>' = actual for that month.
+   Property income comes from Rented properties; expenses come from Budget tracking and the Expenses log. */
+const INC=[['salary','Salary'],['property','Property (rent)'],['interest','Interest received'],['others','Others']];
+function renderIncome(items){
+  const B=budgetNow(),m=S.month,show=!!S.incShow,mon=monthName(m);
+  $('#incShow').textContent=show?'Hide amounts':'Show amounts';
+  $('#incHint').textContent=show?'Amounts hide again when you leave this page or the app.':'Amounts are hidden. They hide again when you leave this page.';
+  $('#incTitle').textContent='Income and expense tracking · '+mon;
+  const money=v=>show?fmt(v):'<span class="mask">•••••</span>';
+  const vari=v=>show?'<span class="num'+(v<0?' neg':'')+'">'+(v<0?'('+fmt(-v)+')':fmt(v))+'</span>':'<span class="mask">•••••</span>';
+  const ind=(p,a,isInc)=>!p&&!a?'<span class="ind na">–</span>':!p?'<span class="ind na">No projection</span>':(isInc?a>=p:a<=p)?'<span class="ind ok">On track</span>':'<span class="ind no">Out of track</span>';
+  const inp=(key,val)=>show?'<input type="number" min="0" step="100" inputmode="decimal" data-inc="'+key+'" value="'+(val||'')+'" placeholder="0" aria-label="Amount">':money(val);
+  const rentDue=S.props.filter(p=>inContract(p,m)).reduce((t,p)=>t+p.rent,0),rentGot=S.props.reduce((t,p)=>{const r=(p.rentPaid||{})[m];return t+(r?(+r.amt||p.rent):0)},0);
+  let pI=0,aI=0;
+  $('#incBody').innerHTML=INC.map(([id,name])=>{
+    const auto=id==='property',p=auto?(+B['inc:property']||rentDue):(+B['inc:'+id]||0),a=auto?rentGot:(+B['inc:'+id+':'+m]||0);pI+=p;aI+=a;
+    return '<tr><td>'+name+'</td><td class="num r">'+(auto?money(p)+'<span class="auto">rent due</span>':inp('inc:'+id,p))+'</td><td class="num r">'+(auto?money(a)+'<span class="auto">rent received</span>':inp('inc:'+id+':'+m,a))+'</td><td class="r">'+vari(a-p)+'</td><td>'+ind(p,a,true)+'</td></tr>'}).join('')
+    +'<tr class="totalrow"><td>Total</td><td class="num r">'+money(pI)+'</td><td class="num r">'+money(aI)+'</td><td class="r">'+vari(aI-pI)+'</td><td>'+ind(pI,aI,true)+'</td></tr>';
+  const act={};items.forEach(x=>act[x.cat]=(act[x.cat]||0)+x.amt);
+  let pE=0,aE=0;
+  $('#expBody').innerHTML=GROUPS.map(g=>{let cb=0,ga=0;g.cats.forEach(([id])=>{cb+=+B[id]||0;ga+=act[id]||0});const p=(+B['grp:'+g.id]||0)||cb;pE+=p;aE+=ga;
+    return '<tr><td>'+esc(g.name)+'</td><td class="num r">'+money(p)+'</td><td class="num r">'+money(ga)+'</td><td class="r">'+vari(p-ga)+'</td><td>'+ind(p,ga,false)+'</td></tr>'}).join('')
+    +'<tr class="totalrow"><td>Total</td><td class="num r">'+money(pE)+'</td><td class="num r">'+money(aE)+'</td><td class="r">'+vari(pE-aE)+'</td><td>'+ind(pE,aE,false)+'</td></tr>';
+  const net=aI-aE;
+  $('#incTiles').innerHTML=[['Income · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aI),''],['Expenses · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aE),''],['Net',show?(net<0?'('+fmt(-net)+')':fmt(net)):'<span class="mask">•••••</span>',show&&net<0?' neg':'']]
+    .map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
+  document.querySelectorAll('#v-income .track-t tbody tr').forEach(tr=>['','Projected','Actual','Variance'].forEach((l,i)=>{if(l&&tr.cells[i])tr.cells[i].dataset.l=l}));
+}
+$('#incShow').addEventListener('click',()=>{S.incShow=!S.incShow;render()});
+$('#incBody').addEventListener('change',e=>{
+  const el=e.target;if(!el.dataset.inc)return;
+  const amt=Math.round(Math.max(0,parseFloat(el.value)||0)*100)/100;
+  if(isDemo()&&!Object.keys(S.budget).length)S.budget={};
+  if(amt>0)S.budget[el.dataset.inc]=amt;else delete S.budget[el.dataset.inc];
+  dbBudget(el.dataset.inc,amt);setTimeout(render,0);
+});
+/* hide the amounts again whenever the app goes to the background */
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.incShow){S.incShow=false;if(S.view==='income')render()}});
 
 /* one-time import of a prepared properties file ({kind:'rlw-properties', properties:[...]}); a property whose name is already here is skipped */
 $('#propImpBtn').addEventListener('click',()=>$('#propImpIn').click());
@@ -1460,9 +1525,9 @@ function toast(text,undo){$('#toastText').textContent=text;$('#toastAct').hidden
 $('#toastAct').addEventListener('click',()=>{if(toastFn)toastFn();$('#toast').hidden=true});
 function shiftMonth(d){const dt=new Date(+S.month.slice(0,4),+S.month.slice(5)-1+d,1);S.month=dt.getFullYear()+'-'+pad(dt.getMonth()+1);render()}
 $('#prevM').addEventListener('click',()=>shiftMonth(-1));$('#nextM').addEventListener('click',()=>shiftMonth(1));
-function go(v){S.view=v;try{if(location.hash!=='#'+v)history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
+function go(v){if(v!==S.view)S.incShow=false;S.view=v;try{if(location.hash!=='#'+v)history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){e.preventDefault();menu(false);go(a.dataset.go)}});
-function fromHash(){const h=location.hash.slice(1)==='properties'?'rented':location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}}
+function fromHash(){const h=location.hash.slice(1)==='properties'?'rented':location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.incShow=false;S.view=h;render()}}
 /* phone menu */
 function menu(open){document.body.classList.toggle('menu-open',open);$('#scrim').hidden=!open;$('#menuBtn').setAttribute('aria-expanded',String(open));if(open)$('.nav a[aria-current]')?.focus()}
 $('#menuBtn').addEventListener('click',()=>menu(!document.body.classList.contains('menu-open')));
