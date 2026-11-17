@@ -2,6 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
   "functions": {
-    "api/scan.js": { "maxDuration": 60 }
+    "api/scan.js": {
+      "maxDuration": 60
+    },
+    "api/extract.js": {
+      "maxDuration": 60
+    }
   }
 }

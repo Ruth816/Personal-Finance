@@ -1,6 +1,7 @@
 // Reads a receipt photo with Claude and returns the fields for the expense form.
 // Only signed-in users of this app's Supabase project can call it.
 import Anthropic from '@anthropic-ai/sdk';
+import { isSignedIn, list } from './_auth.js';
 
 const MAX_B64 = 4_000_000; // Vercel request bodies are limited to 4.5 MB
 const MEDIA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -18,21 +19,6 @@ const RECEIPT_SCHEMA = {
   required: ['date', 'description', 'amount', 'category', 'account', 'notes'],
   additionalProperties: false,
 };
-
-async function isSignedIn(req) {
-  const auth = req.headers.authorization || '';
-  if (!auth.startsWith('Bearer ') || !process.env.SUPABASE_URL) return false;
-  try {
-    const r = await fetch(process.env.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user', {
-      headers: { Authorization: auth, apikey: process.env.SUPABASE_ANON_KEY || '' },
-    });
-    return r.ok;
-  } catch {
-    return false;
-  }
-}
-
-const list = (v, max) => (Array.isArray(v) ? v.slice(0, max).map((s) => String(s).slice(0, 160)) : []);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });

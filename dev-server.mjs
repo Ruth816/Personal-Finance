@@ -29,6 +29,7 @@ http.createServer(async (req, res) => {
   try {
     if (url.pathname.startsWith('/api/')) {
       const name = url.pathname.slice(5).replace(/[^a-z0-9_-]/gi, '');
+      if (!name || name.startsWith('_')) { res.writeHead(404); return res.end('Not found'); }
       const file = path.join(here, 'api', name + '.js');
       const mod = await import(pathToFileURL(file).href);
       req.body = req.method === 'POST' ? await readBody(req) : undefined;

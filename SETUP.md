@@ -61,9 +61,21 @@ git push -u origin main
 
 From now on every `git push` to `main` redeploys the app automatically.
 
-## 5. Receipt scanning (optional)
+## 5. Receipt scanning and reading photos, PDFs and Word files (optional)
 
-"Scan a receipt photo" appears only when `ANTHROPIC_API_KEY` is set in Vercel.
+**Import a file** on the Expenses log page accepts:
+
+| File | How it is read | Needs `ANTHROPIC_API_KEY` |
+|---|---|---|
+| Excel (.xlsx, .xls), CSV | In the browser | No |
+| Word (.docx) with a table that has Date and Amount columns | In the browser | No |
+| Word (.docx) without such a table | By Claude (`api/extract`) | Yes |
+| PDF (up to about 2.9 MB, not password-protected), e.g. a card statement | By Claude (`api/extract`) | Yes |
+| Photo of a receipt or statement | By Claude (`api/extract`) | Yes |
+
+Every import goes to **Check the imported items**, where you pick any missing category or account before adding. Old `.doc` files must first be saved as `.docx`.
+
+"Scan a receipt photo" (fills in the form for one receipt) appears only when `ANTHROPIC_API_KEY` is set in Vercel.
 
 - Create a key at console.anthropic.com → **API keys**. It is billed separately from a Claude.ai subscription, per scan (each photo costs a few cents or less).
 - After adding or changing an environment variable in Vercel, go to **Deployments → ⋯ → Redeploy** so it takes effect.
@@ -75,6 +87,7 @@ From now on every `git push` to `main` redeploys the app automatically.
 |---|---|
 | 12.2: data saved to the Claude account, one document per month | Saved in Supabase, one row per expense (`expenses`) and one per budget (`budgets`), each protected so only your login can read or change it |
 | 6.1: receipts read by Claude inside the Claude app, counted against Claude usage | Read by the `api/scan` function with your Anthropic API key, billed to that key |
+| 6.2: import CSV or Excel | Also imports Word, PDF and photos (see step 5) |
 | 12.3 status line "Saved to your Claude account…" | "Saved to your account, private to you" |
 | — | Sign-in screen (email + password) and a **Sign out** link in the header |
 | 12.2 two devices at once | Unchanged: last save wins. The app also reloads your data when you switch back to its tab |
