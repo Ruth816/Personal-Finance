@@ -134,7 +134,7 @@ tr.unpaid td{color:var(--bad)}
 /* income & expense tracking */
 .ind{display:inline-block;border-radius:6px;padding:2px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
 .ind.ok{background:var(--good-soft);color:var(--good)} .ind.no{background:var(--bad-soft);color:var(--bad)} .ind.na{color:var(--muted)}
-.mask{color:var(--muted);letter-spacing:.12em}
+.mask{color:var(--muted);letter-spacing:.12em;cursor:pointer}
 .track-t input{width:120px;text-align:right;background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:5px 8px;font-family:var(--mono)}
 .track-t .auto{font-size:11.5px;color:var(--muted);display:block}
 .track-t tr.sub td:first-child{padding-left:22px}
@@ -974,7 +974,7 @@ const payMonths=(s,B)=>{const a=+B['inc:'+s.id+':m']||s.m;return MSHORT.filter((
 function renderIncome(items){
   const B=budgetNow(),m=S.month,show=!!S.incShow,mon=monthName(m);
   $('#incShow').textContent=show?'Hide amounts':'Show amounts';
-  $('#incHint').textContent=show?'Amounts hide again when you leave this page or the app.':'Amounts are hidden. They hide again when you leave this page.';
+  $('#incHint').textContent=show?'Amounts hide again when you leave this page or the app.':'Amounts are hidden. Tap Show amounts (or any •••••) to see and type figures. Rent fills in from Rented properties.';
   $('#incTitle').textContent='Income and expense tracking · '+mon;
   const money=v=>show?fmt(v):'<span class="mask">•••••</span>';
   const vari=v=>show?'<span class="num'+(v<0?' neg':'')+'">'+(v<0?'('+fmt(-v)+')':fmt(v))+'</span>':'<span class="mask">•••••</span>';
@@ -1009,6 +1009,8 @@ function renderIncome(items){
   lab('#incBody',['','Actual','Additional','Total income']);lab('#expBody',['','Projected','Actual','Variance']);
 }
 $('#incShow').addEventListener('click',()=>{S.incShow=!S.incShow;render()});
+/* tapping a hidden amount (•••••) shows the amounts, so figures can be typed straight away */
+$('#v-income').addEventListener('click',e=>{if(!S.incShow&&e.target.closest('.mask')){S.incShow=true;render()}});
 $('#incBody').addEventListener('change',e=>{
   const el=e.target;if(!el.dataset.inc)return;
   const amt=Math.round(Math.max(0,parseFloat(el.value)||0)*100)/100;
