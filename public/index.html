@@ -365,7 +365,7 @@ const MERCHANTS=[
  ["Mercury Drug","meds",0,["MERCURYDRUG","MERCURY DRUG"]],
  ["Meralco","electric",0,["MERALCO"]],
  ["Modern Shang","meals",0,["MODERN SHANG"]],
- ["Muji","hh-shop",0,["MUJI"]],
+ ["Muji","hh-shop",1,["MUJI"]],
  ["Nanyang Kopitiam","meals",0,["NANYANG"]],
  ["Northpark","meals",0,["NORTHPARK"]],
  ["Oldtown White Coffee","meals",0,["OLDTOWN"]],
@@ -403,7 +403,7 @@ const MERCHANTS=[
  ["Vercel","apps",0,["VERCEL"]],
  ["Via Mare","meals",0,["VIA MARE"]],
  ["Virginia's Bistro","meals",0,["VIRGINIAS BISTRO"]],
- ["Wilcon Depot","hh-maint",0,["WILCON"]],
+ ["Wilcon Depot","hh-maint",1,["WILCON"]],
  ["Alma Pure Ritual","shopping",1,["ALMA PURE"]],
  ["Asarai","shopping",1,["ASARAI"]],
  ["Aveleya","shopping",1,["AVELEYA"]],
@@ -1047,6 +1047,14 @@ $('#budgetBody').addEventListener('change',e=>{
   const amt=Math.round(v*100)/100;
   if(amt>0)S.budget[el.dataset.cat]=amt;else delete S.budget[el.dataset.cat];
   dbBudget(el.dataset.cat,amt);setTimeout(render,0);
+});
+/* update the Budget tile and totals while typing; saving still happens on change */
+$('#budgetBody').addEventListener('input',e=>{
+  const el=e.target;if(!el.dataset.cat)return;
+  if(isDemo()&&!Object.keys(S.budget).length)S.budget={...EXB};
+  const amt=Math.round(Math.max(0,parseFloat(el.value)||0)*100)/100;
+  if(amt>0)S.budget[el.dataset.cat]=amt;else delete S.budget[el.dataset.cat];
+  render();
 });
 
 /* ---------- chrome ---------- */
