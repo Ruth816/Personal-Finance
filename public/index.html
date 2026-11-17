@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ruth's Expenses Log</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RLW App</title>
+<meta name="apple-mobile-web-app-title" content="RLW App">
+<meta name="theme-color" content="#161B33">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -12,6 +14,7 @@
      four pages (Log, Accounts, Daily, Budget) sit under it; figures are set in mono, right-aligned. */
   --paper:#F3F4FA; --card:#FFFFFF; --ink:#161B33; --muted:#5A6284; --rule:#D8DBEB;
   --accent:#2B3FAE; --accent-soft:#E5E8FA; --on-accent:#FFFFFF;
+  --side-bg:#161B33; --side-ink:#ECEEFA; --side-muted:#A2A9CE; --side-hover:rgba(255,255,255,.08); --side-on:#FFFFFF; --side-on-ink:#161B33;
   --good:#1B7F56; --good-soft:#DDF2E8; --bad:#C2302A; --bad-soft:#FBE3E1; --note:#8A5A00; --note-soft:#FBEFD3;
   --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
   --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -22,6 +25,7 @@
   :root:not([data-theme="light"]){
     --paper:#0F1228; --card:#181C3A; --ink:#ECEEFA; --muted:#A2A9CE; --rule:#2D3362;
     --accent:#93A1FF; --accent-soft:#252C5E; --on-accent:#0F1228;
+    --side-bg:#0A0D20; --side-ink:#ECEEFA; --side-muted:#A2A9CE; --side-hover:rgba(255,255,255,.07); --side-on:#93A1FF; --side-on-ink:#0F1228;
     --good:#62D3A2; --good-soft:#153B2D; --bad:#FF8E86; --bad-soft:#4A1C1B; --note:#F0C36A; --note-soft:#3D3013;
     color-scheme:dark;
   }
@@ -29,6 +33,7 @@
 :root[data-theme="dark"]{
   --paper:#0F1228; --card:#181C3A; --ink:#ECEEFA; --muted:#A2A9CE; --rule:#2D3362;
   --accent:#93A1FF; --accent-soft:#252C5E; --on-accent:#0F1228;
+  --side-bg:#0A0D20; --side-ink:#ECEEFA; --side-muted:#A2A9CE; --side-hover:rgba(255,255,255,.07); --side-on:#93A1FF; --side-on-ink:#0F1228;
   --good:#62D3A2; --good-soft:#153B2D; --bad:#FF8E86; --bad-soft:#4A1C1B; --note:#F0C36A; --note-soft:#3D3013;
   color-scheme:dark;
 }
@@ -60,11 +65,57 @@ button,input,select{font:inherit;color:inherit}
 .total{display:flex;flex-direction:column;align-items:flex-end}
 .total .num{font-size:26px;font-weight:600;line-height:1.1}
 
-/* tabs */
-.tabs{display:flex;gap:4px;border-bottom:2px solid var(--ink);flex-wrap:wrap}
-.tabs a{font-family:var(--display);font-weight:500;font-size:15px;text-decoration:none;color:var(--muted);padding:9px 16px;border-radius:9px 9px 0 0;border:1px solid transparent;border-bottom:0}
-.tabs a:hover{color:var(--ink);background:var(--accent-soft)}
-.tabs a[aria-current="page"]{background:var(--ink);color:var(--paper)}
+/* sidebar layout */
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--side-bg);color:var(--side-ink);display:flex;flex-direction:column;gap:22px;padding:22px 14px}
+.side-brand{display:flex;align-items:center;gap:10px;padding:0 8px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--side-on);color:var(--side-on-ink);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.02em;flex:none}
+.side-brand strong{display:block;font-family:var(--display);font-size:18px;line-height:1.1}
+.side-brand span{font-size:12.5px;color:var(--side-muted)}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;text-decoration:none;color:var(--side-muted);font-weight:500}
+.nav a:hover{background:var(--side-hover);color:var(--side-ink)}
+.nav a[aria-current="page"]{background:var(--side-on);color:var(--side-on-ink)}
+.nav .badge{margin-left:auto;background:var(--bad);color:#fff;border-radius:999px;font-size:11.5px;font-weight:600;padding:1px 7px;font-family:var(--mono)}
+.side-foot{margin-top:auto;padding:0 8px;font-size:12px;color:var(--side-muted)}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.menubtn{display:none;border:1px solid var(--rule);background:var(--card);border-radius:9px;width:40px;height:40px;cursor:pointer;place-items:center;flex:none}
+.menubtn .ic{width:20px;height:20px}
+.scrim{position:fixed;inset:0;background:rgba(8,10,30,.45);z-index:29}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed;left:0;top:0;bottom:0;width:260px;z-index:30;transform:translateX(-100%);transition:transform .2s ease;box-shadow:0 0 40px rgba(0,0,0,.3)}
+  body.menu-open .side{transform:none}
+  .menubtn{display:grid}
+}
+@media (prefers-reduced-motion:reduce){.side{transition:none}}
+@supports (height:100dvh){.side{height:100dvh}}
+body.menu-open{overflow:hidden}
+/* iPhone: 16px text in boxes stops Safari zooming in when a box is tapped; bigger tap targets */
+@media (max-width:900px){
+  input,select,textarea{font-size:16px!important}
+  .nav a{padding:13px 12px}
+  .side{padding-top:max(22px,env(safe-area-inset-top));padding-bottom:max(22px,env(safe-area-inset-bottom))}
+  .wrap{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+  .head h1{font-size:24px}
+}
+@media (max-width:600px){
+  .wrap .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .wrap .tile{padding:10px 12px}
+  .wrap .tile .v{font-size:16.5px;overflow-wrap:anywhere}
+  .total{align-items:flex-start}
+}
+
+/* dashboard */
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.dash-grid .span2{grid-column:1/-1}
+@media (max-width:900px){.dash-grid{grid-template-columns:minmax(0,1fr)}}
+.grp{display:grid;grid-template-columns:minmax(120px,1fr) 2fr auto;gap:6px 14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule)}
+.grp:last-child{border-bottom:0}
+.grp .track i.over{background:var(--bad)}
+@media (max-width:600px){.grp{grid-template-columns:1fr auto}.grp .track{grid-column:1/-1;order:3}}
+.mrow{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:6px 0;font-size:14px}
+.mrow.cur strong{color:var(--accent)}
 
 .card{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px}
 .stack{display:flex;flex-direction:column;gap:16px}
@@ -157,18 +208,33 @@ details.day .items div{display:flex;justify-content:space-between;gap:12px}
 .rc{border:1px solid var(--rule);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--paper)}
 .rc img{width:100%;height:150px;object-fit:cover;border-radius:6px;background:var(--rule);cursor:zoom-in}
 .rc .row{gap:4px;flex-wrap:wrap}
-body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked #keepBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
+body.locked .app{grid-template-columns:minmax(0,1fr)}
+body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,body.locked #demoBanner,body.locked #keepBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
 .signout{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0;text-decoration:underline}
 [hidden]{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
 <body>
+<div class="app">
+<aside class="side" id="side" aria-label="Main menu">
+  <div class="side-brand"><span class="logo" aria-hidden="true">RLW</span><div><strong>RLW App</strong><span>Ruth's expenses</span></div></div>
+  <nav class="nav" aria-label="Pages">
+    <a href="#dashboard" data-go="dashboard"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg><span>Dashboard</span></a>
+    <a href="#log" data-go="log"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="2.6"/></svg><span>Expenses log</span></a>
+    <a href="#receipts" data-go="receipts"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Receipts</span><span class="badge" id="navRcptN" hidden></span></a>
+    <a href="#accounts" data-go="accounts"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/></svg><span>Accounts</span></a>
+    <a href="#daily" data-go="daily"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M6 17v-6M11 17V5M16 17v-9M21 17v-4"/></svg><span>Daily breakdown</span></a>
+    <a href="#budget" data-go="budget"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Budget tracking</span></a>
+  </nav>
+  <div class="side-foot">rlw-app.com</div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
 <div class="wrap">
 
   <header class="head">
     <div class="brand">
-      <h1>Ruth's Expenses Log</h1>
+      <div class="row" style="gap:10px;flex-wrap:nowrap"><button type="button" class="menubtn" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="side"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="pageTitle">Dashboard</h1></div>
       <div class="status" id="status"><span class="dot"></span><span id="statusText">Opening your saved expenses…</span><button type="button" class="signout" id="signOut" hidden>Sign out</button></div>
     </div>
     <div class="monthbox">
@@ -181,12 +247,6 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked #kee
     </div>
   </header>
 
-  <nav class="tabs" aria-label="Pages">
-    <a href="#log" data-view="log">Expenses log</a>
-    <a href="#accounts" data-view="accounts">Accounts</a>
-    <a href="#daily" data-view="daily">Daily breakdown</a>
-    <a href="#budget" data-view="budget">Budget tracking</a>
-  </nav>
 
   <div class="banner stack" id="keepBanner" hidden>
     <span id="keepText"></span>
@@ -211,8 +271,43 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked #kee
     </form>
   </section>
 
+  <!-- DASHBOARD -->
+  <section id="v-dashboard" class="stack" hidden>
+    <div class="tiles" id="dashTiles"></div>
+    <div class="row">
+      <button type="button" class="btn primary" data-act="add">Add an item</button>
+      <button type="button" class="btn" data-act="scan" id="dashScan" hidden>Scan a receipt photo</button>
+      <button type="button" class="btn" data-act="upload" id="dashUpload" hidden>Upload receipts</button>
+      <button type="button" class="btn" data-act="import">Import a statement</button>
+    </div>
+    <div class="dash-grid">
+      <div class="card stack"><div class="row spread"><h2 id="dashGrpTitle">Spending by group</h2><a href="#budget" data-go="budget" class="small">Budget tracking</a></div><div id="dashGroups"></div></div>
+      <div class="card stack"><h2>Last 6 months</h2><div id="dashMonths"></div></div>
+      <div class="card stack span2"><div class="row spread"><h2>Latest items</h2><a href="#log" data-go="log" class="small">See the whole log</a></div>
+        <div class="scroll"><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th>Account</th></tr></thead><tbody id="dashRecent"></tbody></table></div></div>
+    </div>
+  </section>
+
+  <!-- RECEIPTS -->
+  <section id="v-receipts" class="stack" hidden>
+    <div class="card stack" id="inboxCard" hidden>
+      <div class="row spread">
+        <div><h2>Receipts inbox</h2><span class="small muted" id="inboxInfo"></span></div>
+        <div class="row">
+          <button type="button" class="btn" id="inboxReadAll" hidden>Read all</button>
+          <button type="button" class="btn primary" id="inboxUpload">Upload receipts</button>
+          <input type="file" id="inboxInput" accept="image/*" multiple hidden>
+        </div>
+      </div>
+      <div class="inbox" id="inboxList"></div>
+      <span class="msg" id="inboxMsg" role="status"></span>
+    </div>
+
+    <div class="card" id="rcptLocal" hidden><p class="muted" style="margin:0">The receipts inbox works once you are signed in to your account.</p></div>
+  </section>
+
   <!-- LOG -->
-  <section id="v-log" class="stack">
+  <section id="v-log" class="stack" hidden>
     <div class="card stack">
       <div class="row spread">
         <h2 id="formTitle">Add an item</h2>
@@ -236,19 +331,6 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked #kee
           <span class="msg" id="formMsg" role="status"></span>
         </div>
       </form>
-    </div>
-
-    <div class="card stack" id="inboxCard" hidden>
-      <div class="row spread">
-        <div><h2>Receipts inbox</h2><span class="small muted" id="inboxInfo"></span></div>
-        <div class="row">
-          <button type="button" class="btn" id="inboxReadAll" hidden>Read all</button>
-          <button type="button" class="btn primary" id="inboxUpload">Upload receipts</button>
-          <input type="file" id="inboxInput" accept="image/*" multiple hidden>
-        </div>
-      </div>
-      <div class="inbox" id="inboxList"></div>
-      <span class="msg" id="inboxMsg" role="status"></span>
     </div>
 
     <div class="card stack" id="importCard" hidden>
@@ -295,6 +377,7 @@ body.locked .tabs,body.locked .monthbox,body.locked #demoBanner,body.locked #kee
       <div class="scroll"><table><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th>% of spending</th><th>Status</th></tr></thead><tbody id="budgetBody"></tbody></table></div>
     </div>
   </section>
+</div>
 </div>
 
 <div class="toast" id="toast" hidden><span id="toastText"></span><button type="button" id="toastAct" hidden>Undo</button></div>
@@ -445,7 +528,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'log',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -497,7 +580,7 @@ const dbBudget=(cat,v)=>persist(()=>v>0?store.sb.from('budgets').upsert({user_id
 
 function showLogin(){
   store.mode='login';S.loaded=false;S.months={};S.budget={};
-  document.body.classList.add('locked');$('#v-login').hidden=false;
+  document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
 async function startCloud(session){
@@ -513,7 +596,7 @@ async function initStore(){
   let cfg=null;
   try{const r=await fetch('/api/config',{cache:'no-store'});if(r.ok)cfg=await r.json()}catch(e){}
   if(!cfg||!cfg.supabaseUrl||!cfg.supabaseAnonKey||!window.supabase){useLocal();return}
-  store.scan=!!cfg.scan;$('#scanBtn').hidden=!store.scan;
+  store.scan=!!cfg.scan;$('#scanBtn').hidden=!store.scan;$('#dashScan').hidden=!store.scan;
   store.sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
   store.sb.auth.onAuthStateChange((ev,session)=>{if(ev==='SIGNED_OUT')showLogin();else if(session)store.user=session.user});
   let session=null;
@@ -553,16 +636,53 @@ function memory(){
 /* ---------- shared render ---------- */
 function optsCat(sel){return '<option value="">Choose a category</option>'+GROUPS.map(g=>'<optgroup label="'+esc(g.name)+'">'+g.cats.map(([id,n])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(n)+'</option>').join('')+'</optgroup>').join('')}
 function optsAcct(sel,first){return '<option value="">'+first+'</option>'+ACCOUNTS.map(a=>'<option'+(a===sel?' selected':'')+'>'+esc(a)+'</option>').join('')}
+const VIEWS=['dashboard','log','receipts','accounts','daily','budget'];
+const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking'};
 function render(){
   $('#monthLabel').textContent=monthName(S.month);
   const items=itemsOf(S.month);
   $('#monthTotal').textContent=fmt(sum(items));
   $('#totalLabel').textContent='Spent in '+MONTHS[+S.month.slice(5)-1]+' · '+items.length+(items.length===1?' item':' items');
   $('#demoBanner').hidden=!isDemo();
-  document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.view===S.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
-  ['log','accounts','daily','budget'].forEach(v=>$('#v-'+v).hidden=v!==S.view);
-  ({log:renderLog,accounts:renderAccounts,daily:renderDaily,budget:renderBudget})[S.view](items);
+  document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.go===S.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  VIEWS.forEach(v=>$('#v-'+v).hidden=v!==S.view);
+  $('#pageTitle').textContent=TITLES[S.view];
+  /* the check table sits under the inbox on the Receipts page, and under the form on the Expenses log page */
+  const ic=$('#importCard'),anchor=S.view==='receipts'?$('#inboxCard'):$('#v-log').firstElementChild;
+  if(ic.previousElementSibling!==anchor)anchor.after(ic);
+  $('#rcptLocal').hidden=store.mode==='cloud';
+  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget})[S.view](items);
 }
+
+/* ---------- dashboard ---------- */
+function renderDash(items){
+  const B=budgetNow(),total=sum(items),act={};items.forEach(x=>act[x.cat]=(act[x.cat]||0)+x.amt);
+  /* same rule as Budget tracking: a group's own amount if typed, else the sum of its categories */
+  const groups=GROUPS.map(g=>{let cb=0,ga=0;g.cats.forEach(([id])=>{cb+=+B[id]||0;ga+=act[id]||0});return {name:g.name,gb:(+B['grp:'+g.id]||0)||cb,ga}});
+  const tb=groups.reduce((t,g)=>t+g.gb,0),left=tb-total,waiting=store.inbox&&S.inbox?S.inbox.length:null;
+  const tiles=[['Spent · '+MONTHS[+S.month.slice(5)-1],fmt(total),''],['Budget',tb?fmt(tb):'Not set',''],
+    [left<0?'Over budget by':'Left to spend',tb?fmt(Math.abs(left)):'–',left<0?' neg':''],
+    waiting!==null?['Receipts waiting',String(waiting),'']:['Items logged',String(items.length),'']];
+  $('#dashTiles').innerHTML=tiles.map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
+  $('#dashGrpTitle').textContent='Spending by group · '+monthName(S.month);
+  const shown=groups.filter(g=>g.ga>0||g.gb>0).sort((a,b)=>b.ga-a.ga);
+  $('#dashGroups').innerHTML=shown.length?shown.map(g=>{const top=Math.max(g.gb,g.ga)||1,over=g.gb>0&&g.ga>g.gb;
+    return '<div class="grp"><div><strong>'+esc(g.name)+'</strong><div class="small muted">'+(g.gb?(over?'<span class="neg">Over by '+fmt(g.ga-g.gb)+'</span>':fmt(g.gb-g.ga)+' left of '+fmt(g.gb)):'No budget set')+'</div></div>'
+      +'<div class="track" title="'+(g.gb?Math.round(g.ga/g.gb*100)+'% of budget':'')+'"><i class="'+(over?'over':'')+'" style="width:'+(g.ga/top*100)+'%"></i></div><div class="num r">'+fmt(g.ga)+'</div></div>'}).join('')
+    :'<div class="empty">Nothing spent in '+monthName(S.month)+' yet.</div>';
+  const ms=[];for(let d=5;d>=0;d--){const dt=new Date(+S.month.slice(0,4),+S.month.slice(5)-1-d,1),m=dt.getFullYear()+'-'+pad(dt.getMonth()+1);ms.push({m,t:sum(itemsOf(m))})}
+  const mx=Math.max(1,...ms.map(o=>o.t));
+  $('#dashMonths').innerHTML=ms.map(o=>'<div class="mrow'+(o.m===S.month?' cur':'')+'"><strong>'+MONTHS[+o.m.slice(5)-1].slice(0,3)+'</strong><div class="track"><i style="width:'+(o.t/mx*100)+'%"></i></div><span class="num r">'+fmt0(o.t)+'</span></div>').join('');
+  const recent=items.slice().sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:(b.ts||0)-(a.ts||0)).slice(0,6);
+  $('#dashRecent').innerHTML=!S.loaded?'<tr><td colspan="5" class="empty">Opening your saved expenses…</td></tr>':recent.length?recent.map(x=>{const c=CAT[x.cat];return '<tr><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(x.desc)+'</td><td>'+esc(c?c.name:'Uncategorised')+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td></tr>'}).join('')
+    :'<tr><td colspan="5" class="empty">Nothing logged for '+monthName(S.month)+' yet.</td></tr>';
+}
+$('#v-dashboard').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='upload'){go('receipts');$('#inboxInput').click();return}
+  go('log');
+  if(a==='add')$('#fDate').focus();else if(a==='scan')$('#scanInput').click();else if(a==='import')$('#fileInput').click();
+});
 
 /* ---------- log ---------- */
 function renderLog(items){
@@ -857,6 +977,7 @@ async function loadInbox(){
   renderInbox();
 }
 function renderInbox(){
+  const nb=$('#navRcptN'),nw=store.inbox&&S.inbox?S.inbox.length:0;nb.hidden=!nw;nb.textContent=nw;$('#dashUpload').hidden=!store.inbox;
   const card=$('#inboxCard');card.hidden=store.mode!=='cloud';if(card.hidden)return;
   $('#inboxUpload').hidden=!store.inbox;
   if(!store.inbox){$('#inboxInfo').textContent='To switch on the inbox, run supabase/receipts.sql in Supabase (see SETUP.md).';$('#inboxList').innerHTML='';$('#inboxReadAll').hidden=true;return}
@@ -1064,13 +1185,19 @@ $('#toastAct').addEventListener('click',()=>{if(toastFn)toastFn();$('#toast').hi
 function shiftMonth(d){const dt=new Date(+S.month.slice(0,4),+S.month.slice(5)-1+d,1);S.month=dt.getFullYear()+'-'+pad(dt.getMonth()+1);render()}
 $('#prevM').addEventListener('click',()=>shiftMonth(-1));$('#nextM').addEventListener('click',()=>shiftMonth(1));
 function go(v){S.view=v;try{if(location.hash!=='#'+v)history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
-document.querySelectorAll('.tabs a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();go(a.dataset.view)}));
-function fromHash(){const h=location.hash.slice(1);if(['log','accounts','daily','budget'].includes(h)&&h!==S.view){S.view=h;render()}}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){e.preventDefault();menu(false);go(a.dataset.go)}});
+function fromHash(){const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}}
+/* phone menu */
+function menu(open){document.body.classList.toggle('menu-open',open);$('#scrim').hidden=!open;$('#menuBtn').setAttribute('aria-expanded',String(open));if(open)$('.nav a[aria-current]')?.focus()}
+$('#menuBtn').addEventListener('click',()=>menu(!document.body.classList.contains('menu-open')));
+$('#scrim').addEventListener('click',()=>menu(false));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('menu-open')){menu(false);$('#menuBtn').focus()}});
+matchMedia('(min-width:901px)').addEventListener('change',e=>{if(e.matches)menu(false)});
 window.addEventListener('hashchange',fromHash);
 
 $('#fCat').innerHTML=optsCat('');$('#fAcct').innerHTML=optsAcct('','Choose an account');$('#fltAcct').innerHTML=optsAcct('','All accounts');
 $('#fDate').value=today();setDayHint();
-const h0=location.hash.slice(1);if(['log','accounts','daily','budget'].includes(h0))S.view=h0;
+const h0=location.hash.slice(1);if(VIEWS.includes(h0))S.view=h0;
 render();initStore();
 </script>
 </body>
