@@ -330,7 +330,7 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
   <section id="v-properties" class="stack" hidden>
     <div class="tiles" id="propTiles"></div>
     <div class="card" id="propSetup" hidden><p class="muted" style="margin:0">To save properties to your account, run <strong>supabase/properties.sql</strong> once in Supabase (SQL Editor → New query → paste → Run), then reload this page.</p></div>
-    <div class="row"><button type="button" class="btn primary" id="propAddBtn">Add a property</button><span class="small muted">Title numbers are not kept here, for your safety.</span></div>
+    <div class="row"><button type="button" class="btn primary" id="propAddBtn">Add a property</button><button type="button" class="btn" id="propImpBtn">Import properties file</button><input type="file" id="propImpIn" accept=".json,application/json" hidden><span class="small muted">Title numbers are not kept here, for your safety.</span></div>
     <div class="card stack" id="propFormCard" hidden>
       <h2 id="propFormTitle">Add a property</h2>
       <form class="form" id="propForm" autocomplete="off">
@@ -785,7 +785,7 @@ function payBlock(p,k){
   const c=PAY[k],dp=pays(p,k).slice().sort((a,b)=>a.from<b.from?1:-1),every=p[c.every]??c.def,cloud=store.mode==='cloud';
   let h='<div class="row spread"><h3>'+c.label+(p[c.amt]?' · '+fmt(p[c.amt])+' · '+EVERY[every].toLowerCase():'')+'</h3></div>';
   if(dp.length)h+='<div class="scroll"><table class="dues"><thead><tr><th>Covering period</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>'
-    +dp.map(x=>{const r=k+'|'+x.id;return '<tr class="'+(x.paid?'':'unpaid')+'"><td style="white-space:nowrap">'+longDate(x.from)+' – '+longDate(x.to)+'</td><td class="num r">'+fmt(x.amt)+'</td>'
+    +dp.map(x=>{const r=k+'|'+x.id;return '<tr class="'+(x.paid?'':'unpaid')+'"><td><span style="white-space:nowrap">'+longDate(x.from)+' – '+longDate(x.to)+'</span>'+(x.note?'<span class="raw">'+esc(x.note)+'</span>':'')+'</td><td class="num r">'+fmt(x.amt)+'</td>'
       +'<td>'+(x.paid?'<span class="pill good">Paid'+(x.on?' '+longDate(x.on):'')+'</span>':'<span class="pill bad">Unpaid</span>')+'</td><td class="acts">'
       +(x.paid?'':'<button type="button" class="btn link" data-ppaid="'+r+'">Mark paid</button>')
       +(x.proof?'<button type="button" class="btn link" data-pview="'+r+'">View proof</button>':'')
@@ -934,6 +934,30 @@ $('#propList').addEventListener('submit',e=>{
   S.payFor=null;document.activeElement.blur();saveProp(p);renderProps(true);
   if(paid)paidToast(p,k);
   if(file)attachProof(p,k,rec,file);
+});
+
+/* one-time import of a prepared properties file ({kind:'rlw-properties', properties:[...]}); a property whose name is already here is skipped */
+$('#propImpBtn').addEventListener('click',()=>$('#propImpIn').click());
+$('#propImpIn').addEventListener('change',async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  if(store.mode==='cloud'&&!store.props)return alert('Run supabase/properties.sql in Supabase first (see SETUP.md step 7), then reload and import again.');
+  let d;try{d=JSON.parse(await file.text())}catch(err){return alert('That file could not be read. Choose the RLW properties import file (.json).')}
+  if(!d||d.kind!=='rlw-properties'||!Array.isArray(d.properties))return alert('That is not an RLW properties import file.');
+  const have=new Set(S.props.map(p=>p.name.trim().toLowerCase()));
+  const add=d.properties.filter(p=>p&&typeof p.name==='string'&&p.name.trim()&&!have.has(p.name.trim().toLowerCase()));
+  const skip=d.properties.length-add.length;
+  if(!add.length)return alert('All '+d.properties.length+' properties in this file are already in the app.');
+  const nR=add.filter(p=>p.rented).length;
+  if(!confirm('Add '+add.length+' properties ('+nR+' rented, '+(add.length-nR)+' own-use)?'+(skip?' '+skip+' already in the app will be skipped.':'')))return;
+  const num=v=>+v||0,str=v=>typeof v==='string'?v.slice(0,300):'',day=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')?v:'';
+  const pay=l=>(Array.isArray(l)?l:[]).filter(x=>x&&day(x.from)&&day(x.to)).map(x=>({id:newId(),from:x.from,to:x.to,amt:num(x.amt),paid:!!x.paid,on:day(x.on),note:str(x.note)}));
+  for(const s of add){
+    const rp={};Object.entries(s.rentPaid||{}).forEach(([m,v])=>{if(/^\d{4}-\d{2}$/.test(m))rp[m]={on:day(v&&v.on),amt:num(v&&v.amt)||num(s.rent)}});
+    const p={id:newId(),name:str(s.name).trim(),area:str(s.area),rented:!!s.rented,tenant:str(s.tenant),rent:num(s.rent),dueDay:Math.min(31,Math.max(0,num(s.dueDay))),start:day(s.start),end:day(s.end),
+      dues:num(s.dues),every:[0,1,2,3,6,12].includes(+s.every)?+s.every:1,tax:num(s.tax),taxEvery:[0,3,6,12].includes(+s.taxEvery)?+s.taxEvery:12,notes:str(s.notes),rentPaid:rp,duesPay:pay(s.duesPay),taxPay:pay(s.taxPay)};
+    S.props.push(p);saveProp(p);
+  }
+  renderProps(true);toast('Added '+add.length+' properties.');
 });
 
 /* ---------- log ---------- */
