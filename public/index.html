@@ -137,6 +137,8 @@ tr.unpaid td{color:var(--bad)}
 .mask{color:var(--muted);letter-spacing:.12em}
 .track-t input{width:120px;text-align:right;background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:5px 8px;font-family:var(--mono)}
 .track-t .auto{font-size:11.5px;color:var(--muted);display:block}
+.track-t tr.sub td:first-child{padding-left:22px}
+.track-t select{font-size:12px;padding:2px 4px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);max-width:170px}
 @media (max-width:600px){.track-t thead{display:none}.track-t tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px;padding:10px 0;border-bottom:1px solid var(--rule)}.track-t td{border:0;padding:0;text-align:left!important}.track-t td:first-child{grid-column:1/3;font-weight:600}.track-t td:last-child{grid-column:3;grid-row:1;text-align:right!important}.track-t td[data-l]::before{content:attr(data-l);display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.track-t input{width:100%}.track-t tr.totalrow{border-top:2px solid var(--ink)}}
 table.dues td.acts{white-space:nowrap}
 @media (max-width:600px){table.dues td.acts{white-space:normal}}
@@ -343,7 +345,7 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
     <div class="tiles" id="incTiles"></div>
     <div class="card stack">
       <div class="row spread"><h2>Income tracking</h2><span class="small muted">Property = rent marked received on Rented properties</span></div>
-      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Projected</th><th class="r">Actual</th><th class="r">Variance</th><th>Indicator</th></tr></thead><tbody id="incBody"></tbody></table></div>
+      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Projected</th><th class="r">Actual</th><th class="r">Additional</th><th class="r">Total income</th><th>Indicator</th></tr></thead><tbody id="incBody"></tbody></table></div>
     </div>
     <div class="card stack">
       <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Projected = Budget tracking · Actual = Expenses log</span></div>
@@ -965,6 +967,10 @@ $('#propList').addEventListener('submit',e=>{
    Typed income is kept with the budgets: 'inc:<row>' = monthly projection, 'inc:<row>:<YYYY-MM>' = actual for that month.
    Property income comes from Rented properties; expenses come from Budget tracking and the Expenses log. */
 const INC=[['salary','Salary'],['property','Property (rent)'],['interest','Interest received'],['others','Others']];
+/* interest sources: every = months between payouts; payout months are set with 'inc:<id>:m' (first payout month, 1–12) */
+const INT=[{id:'int-bpi',name:'Time deposit – BPI',every:3,m:3},{id:'int-bdo',name:'Time deposit – BDO',every:3,m:3},{id:'int-pru',name:'Pru Life',every:12,m:12},{id:'int-insular',name:'Insular Life via UnionBank',every:1,m:1}];
+const MSHORT=MONTHS.map(x=>x.slice(0,3));
+const payMonths=(s,B)=>{const a=+B['inc:'+s.id+':m']||s.m;return MSHORT.filter((_,i)=>((i+1-a)%s.every+s.every)%s.every===0)};
 function renderIncome(items){
   const B=budgetNow(),m=S.month,show=!!S.incShow,mon=monthName(m);
   $('#incShow').textContent=show?'Hide amounts':'Show amounts';
@@ -975,20 +981,39 @@ function renderIncome(items){
   const ind=(p,a,isInc)=>!p&&!a?'<span class="ind na">–</span>':!p?'<span class="ind na">No projection</span>':(isInc?a>=p:a<=p)?'<span class="ind ok">On track</span>':'<span class="ind no">Out of track</span>';
   const inp=(key,val)=>show?'<input type="number" min="0" step="100" inputmode="decimal" data-inc="'+key+'" value="'+(val||'')+'" placeholder="0" aria-label="Amount">':money(val);
   const rentDue=S.props.filter(p=>inContract(p,m)).reduce((t,p)=>t+p.rent,0),rentGot=S.props.reduce((t,p)=>{const r=(p.rentPaid||{})[m];return t+(r?(+r.amt||p.rent):0)},0);
-  let pI=0,aI=0;
+  /* income columns: Projected | Actual | Additional | Total income (= Actual + Additional) | Indicator (Total vs Projected) */
+  let pI=0,aI=0,dI=0;
+  const mi=+m.slice(5),addOf=id=>+B['inc:'+id+':add:'+m]||0;
+  const cells=(pH,aH,id,p,a,d)=>'<td class="num r">'+pH+'</td><td class="num r">'+aH+'</td><td class="num r">'+(id?inp('inc:'+id+':add:'+m,d):money(d))+'</td><td class="num r"><strong>'+money(a+d)+'</strong></td><td>'+ind(p,a+d,true)+'</td>';
   $('#incBody').innerHTML=INC.map(([id,name])=>{
-    const auto=id==='property',p=auto?(+B['inc:property']||rentDue):(+B['inc:'+id]||0),a=auto?rentGot:(+B['inc:'+id+':'+m]||0);pI+=p;aI+=a;
-    return '<tr><td>'+name+'</td><td class="num r">'+(auto?money(p)+'<span class="auto">rent due</span>':inp('inc:'+id,p))+'</td><td class="num r">'+(auto?money(a)+'<span class="auto">rent received</span>':inp('inc:'+id+':'+m,a))+'</td><td class="r">'+vari(a-p)+'</td><td>'+ind(p,a,true)+'</td></tr>'}).join('')
-    +'<tr class="totalrow"><td>Total</td><td class="num r">'+money(pI)+'</td><td class="num r">'+money(aI)+'</td><td class="r">'+vari(aI-pI)+'</td><td>'+ind(pI,aI,true)+'</td></tr>';
+    if(id==='interest'){
+      let gp=0,ga=0,gd=0;
+      const rows=INT.map(s=>{
+        const per=+B['inc:'+s.id]||0,months=payMonths(s,B),due=months.includes(MSHORT[mi-1]),p=due?per:0,a=+B['inc:'+s.id+':'+m]||0,d=addOf(s.id);gp+=p;ga+=a;gd+=d;
+        const freq=s.every===1?'Monthly':s.every===3?'Quarterly':'Yearly';
+        const sched=s.every===1?'':show?' · paid in <select data-inc="inc:'+s.id+':m" aria-label="Payout months">'
+          +(s.every===3?[1,2,3].map(k=>'<option value="'+k+'"'+(months[0]===MSHORT[k-1]?' selected':'')+'>'+[0,3,6,9].map(o=>MSHORT[k-1+o]).join(', ')+'</option>').join('')
+            :MSHORT.map((x,k)=>'<option value="'+(k+1)+'"'+(months[0]===x?' selected':'')+'>'+x+'</option>').join(''))+'</select>'
+          :' · '+months.join(', ');
+        return '<tr class="sub"><td>'+esc(s.name)+'<span class="auto">'+freq+sched+'</span></td>'
+          +cells(inp('inc:'+s.id,per)+'<span class="auto">'+(s.every===1?'per month':'per payout')+(s.every>1&&!due?' · none this month':'')+'</span>',inp('inc:'+s.id+':'+m,a),s.id,p,a,d)+'</tr>'}).join('');
+      pI+=gp;aI+=ga;dI+=gd;
+      return '<tr class="group"><td>'+name+'</td>'+cells(money(gp),money(ga),null,gp,ga,gd)+'</tr>'+rows;
+    }
+    const auto=id==='property',p=auto?(+B['inc:property']||rentDue):(+B['inc:'+id]||0),a=auto?rentGot:(+B['inc:'+id+':'+m]||0),d=addOf(id);pI+=p;aI+=a;dI+=d;
+    return '<tr><td>'+name+'</td>'+cells(auto?money(p)+'<span class="auto">rent due</span>':inp('inc:'+id,p),auto?money(a)+'<span class="auto">rent received</span>':inp('inc:'+id+':'+m,a),id,p,a,d)+'</tr>'}).join('')
+    +'<tr class="totalrow"><td>Total income</td>'+cells(money(pI),money(aI),null,pI,aI,dI)+'</tr>';
+  const tI=aI+dI;
   const act={};items.forEach(x=>act[x.cat]=(act[x.cat]||0)+x.amt);
   let pE=0,aE=0;
   $('#expBody').innerHTML=GROUPS.map(g=>{let cb=0,ga=0;g.cats.forEach(([id])=>{cb+=+B[id]||0;ga+=act[id]||0});const p=(+B['grp:'+g.id]||0)||cb;pE+=p;aE+=ga;
     return '<tr><td>'+esc(g.name)+'</td><td class="num r">'+money(p)+'</td><td class="num r">'+money(ga)+'</td><td class="r">'+vari(p-ga)+'</td><td>'+ind(p,ga,false)+'</td></tr>'}).join('')
     +'<tr class="totalrow"><td>Total</td><td class="num r">'+money(pE)+'</td><td class="num r">'+money(aE)+'</td><td class="r">'+vari(pE-aE)+'</td><td>'+ind(pE,aE,false)+'</td></tr>';
-  const net=aI-aE;
-  $('#incTiles').innerHTML=[['Income · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aI),''],['Expenses · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aE),''],['Net',show?(net<0?'('+fmt(-net)+')':fmt(net)):'<span class="mask">•••••</span>',show&&net<0?' neg':'']]
+  const net=tI-aE;
+  $('#incTiles').innerHTML=[['Total income · '+MONTHS[+m.slice(5)-1].slice(0,3),money(tI),''],['Expenses · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aE),''],['Net',show?(net<0?'('+fmt(-net)+')':fmt(net)):'<span class="mask">•••••</span>',show&&net<0?' neg':'']]
     .map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
-  document.querySelectorAll('#v-income .track-t tbody tr').forEach(tr=>['','Projected','Actual','Variance'].forEach((l,i)=>{if(l&&tr.cells[i])tr.cells[i].dataset.l=l}));
+  const lab=(sel,ls)=>document.querySelectorAll(sel+' tr').forEach(tr=>ls.forEach((l,i)=>{if(l&&tr.cells[i])tr.cells[i].dataset.l=l}));
+  lab('#incBody',['','Projected','Actual','Additional','Total income']);lab('#expBody',['','Projected','Actual','Variance']);
 }
 $('#incShow').addEventListener('click',()=>{S.incShow=!S.incShow;render()});
 $('#incBody').addEventListener('change',e=>{
