@@ -131,6 +131,8 @@ body.menu-open{overflow:hidden}
 .payform{background:var(--paper);border-radius:10px;padding:12px}
 .payform .f input,.payform .f select{background:var(--card)}
 tr.unpaid td{color:var(--bad)}
+table.dues td.acts{white-space:nowrap}
+@media (max-width:600px){table.dues td.acts{white-space:normal}}
 @media (max-width:600px){table.dues thead{display:none}table.dues tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--rule)}table.dues td{border:0;padding:2px 0}table.dues td:nth-child(3),table.dues td:nth-child(4){grid-column:span 2}}
 
 .card{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px}
@@ -344,6 +346,8 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
         </div>
         <div class="f c4"><label for="pDues">Assoc dues per payment (₱)</label><input type="number" id="pDues" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
         <div class="f c4"><label for="pEvery">Assoc dues paid</label><select id="pEvery"><option value="1">Monthly</option><option value="2">Every 2 months</option><option value="3">Quarterly (every 3 months)</option><option value="6">Every 6 months</option><option value="12">Yearly</option><option value="0">Varies (I'll set each period)</option></select></div>
+        <div class="f c4"><label for="pTax">Property tax per payment (₱)</label><input type="number" id="pTax" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div class="f c4"><label for="pTaxEvery">Property tax paid</label><select id="pTaxEvery"><option value="12">Yearly</option><option value="6">Every 6 months</option><option value="3">Quarterly</option><option value="0">Varies (I'll set each period)</option></select></div>
         <div class="f c12"><label for="pNotes">Notes</label><input type="text" id="pNotes" maxlength="200" placeholder="Any remarks"></div>
         <div class="row c12"><button type="submit" class="btn primary">Save property</button><button type="button" class="btn" id="propCancel">Cancel</button><span class="msg" id="propMsg" role="status"></span></div>
       </form>
@@ -756,17 +760,50 @@ function rentState(p,m){
   const last=new Date(+m.slice(0,4),+m.slice(5),0).getDate(),due=m+'-'+pad(Math.min(p.dueDay||1,last));
   return today()>due?'late':m===today().slice(0,7)?'due':'future';
 }
+/* assoc dues and property tax share one kind of payment list: [{id, from, to, amt, paid, on, proof}] */
+const PAY={dues:{label:'Assoc dues',list:'duesPay',amt:'dues',every:'every',def:1},tax:{label:'Property tax',list:'taxPay',amt:'tax',every:'taxEvery',def:12}};
+const pays=(p,k)=>p[PAY[k].list]||(p[PAY[k].list]=[]);
+const paidUpTo=(p,k)=>pays(p,k).filter(x=>x.paid).map(x=>x.to).sort().pop()||'';
+const unpaidOf=(list,k)=>list.reduce((t,p)=>t+pays(p,k).filter(x=>!x.paid).reduce((s,x)=>s+(+x.amt||0),0),0);
 function propAlerts(p){
   const late=MONTHS.map((_,i)=>today().slice(0,4)+'-'+pad(i+1)).filter(m=>rentState(p,m)==='late').length;
-  return late+(p.duesPay||[]).filter(x=>!x.paid).length;
+  return late+pays(p,'dues').filter(x=>!x.paid).length+pays(p,'tax').filter(x=>!x.paid).length;
 }
-function nextPeriod(p){
-  const list=(p.duesPay||[]).slice().sort((a,b)=>a.to<b.to?-1:1),last=list[list.length-1];
+function nextPeriod(p,k){
+  const c=PAY[k],list=pays(p,k).slice().sort((a,b)=>a.to<b.to?-1:1),last=list[list.length-1];
   const from=last?addDays(last.to,1):today().slice(0,8)+'01';
-  let n=+p.every;if(!n&&last){n=Math.max(1,Math.round((toDate(last.to)-toDate(last.from))/2629800000))}if(!n)n=1;
-  return {from,to:addDays(addMonths(from,n),-1),amt:p.dues||(last?last.amt:'')};
+  let n=+(p[c.every]??c.def);if(!n&&last){n=Math.max(1,Math.round((toDate(last.to)-toDate(last.from))/2629800000))}if(!n)n=1;
+  return {from,to:addDays(addMonths(from,n),-1),amt:p[c.amt]||(last?last.amt:'')};
 }
-function renderProps(){
+/* "paid up to" message for one kind, e.g. "Assoc dues paid up to 31 Dec 2026" */
+function upToPill(p,k){
+  const to=paidUpTo(p,k),c=PAY[k];if(!to&&!pays(p,k).length&&!p[c.amt])return '';
+  if(!to)return '<span class="pill bad">'+c.label+': no payment yet</span>';
+  return '<span class="pill '+(to>=today()?'good':'bad')+'">'+c.label+' paid up to '+longDate(to)+(to>=today()?'':' · now due')+'</span>';
+}
+function payBlock(p,k){
+  const c=PAY[k],dp=pays(p,k).slice().sort((a,b)=>a.from<b.from?1:-1),every=p[c.every]??c.def,cloud=store.mode==='cloud';
+  let h='<div class="row spread"><h3>'+c.label+(p[c.amt]?' · '+fmt(p[c.amt])+' · '+EVERY[every].toLowerCase():'')+'</h3></div>';
+  if(dp.length)h+='<div class="scroll"><table class="dues"><thead><tr><th>Covering period</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>'
+    +dp.map(x=>{const r=k+'|'+x.id;return '<tr class="'+(x.paid?'':'unpaid')+'"><td style="white-space:nowrap">'+longDate(x.from)+' – '+longDate(x.to)+'</td><td class="num r">'+fmt(x.amt)+'</td>'
+      +'<td>'+(x.paid?'<span class="pill good">Paid'+(x.on?' '+longDate(x.on):'')+'</span>':'<span class="pill bad">Unpaid</span>')+'</td><td class="acts">'
+      +(x.paid?'':'<button type="button" class="btn link" data-ppaid="'+r+'">Mark paid</button>')
+      +(x.proof?'<button type="button" class="btn link" data-pview="'+r+'">View proof</button>':'')
+      +(cloud?'<button type="button" class="btn link" data-pup="'+r+'">'+(x.proof?'Replace proof':'Upload proof')+'</button>':'')
+      +'<button type="button" class="btn link" data-predit="'+r+'">Edit</button><button type="button" class="btn link" data-prdel="'+r+'">Delete</button></td></tr>'}).join('')+'</tbody></table></div>';
+  const f=S.payFor&&S.payFor.pid===p.id&&S.payFor.kind===k?S.payFor:null;
+  if(f){const x=f.id?pays(p,k).find(d=>d.id===f.id):Object.assign(nextPeriod(p,k),{paid:true,on:today()});
+    h+='<form class="form payform" data-payform="'+k+'"><div class="f c3"><label>Covering from</label><input type="date" name="from" value="'+esc(x.from)+'" required></div>'
+      +'<div class="f c3"><label>Covering to</label><input type="date" name="to" value="'+esc(x.to)+'" required></div>'
+      +'<div class="f c2"><label>Amount (₱)</label><input type="number" name="amt" min="0" step="0.01" inputmode="decimal" value="'+esc(x.amt)+'"></div>'
+      +'<div class="f c2"><label>Status</label><select name="paid"><option value="1"'+(x.paid?' selected':'')+'>Paid</option><option value="0"'+(x.paid?'':' selected')+'>Unpaid</option></select></div>'
+      +'<div class="f c2"><label>Paid on</label><input type="date" name="on" value="'+esc(x.on||'')+'"></div>'
+      +(cloud?'<div class="f c12"><label>Proof of payment (photo or PDF, optional)</label><input type="file" name="proof" accept="image/*,application/pdf"><span class="hint">'+(x.proof?'A proof is already saved; choosing a file replaces it.':'You can also add it later with Upload proof.')+'</span></div>':'')
+      +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add payment')+'</button><button type="button" class="btn" data-paycancel>Cancel</button><span class="msg" data-paymsg></span></div></form>';
+  } else h+='<div class="row"><button type="button" class="btn" data-padd="'+k+'">Add '+(k==='dues'?'an assoc dues':'a property tax')+' payment</button></div>';
+  return h;
+}
+function renderProps(force){
   const badge=(id,list)=>{const n=list.reduce((t,p)=>t+propAlerts(p),0),b=$(id);b.hidden=!n;b.textContent=n};
   badge('#navRentN',S.props.filter(p=>p.rented));badge('#navOwnN',S.props.filter(p=>!p.rented));
   if(secOf(S.view)!=='properties')return;
@@ -775,18 +812,21 @@ function renderProps(){
   $('#propAddBtn').textContent=isRent?'Add a rented property':'Add an own-use property';
   if(S.propView!==S.view){S.propView=S.view;$('#propFormCard').hidden=true;S.propEdit=null;S.payFor=null}
   const m=S.month,mn=MONTHS[+m.slice(5)-1].slice(0,3),y=m.slice(0,4);
-  const unpaidDues=list.reduce((t,p)=>t+(p.duesPay||[]).filter(x=>!x.paid).reduce((s,x)=>s+(+x.amt||0),0),0);
+  const uDues=unpaidOf(list,'dues'),uTax=unpaidOf(list,'tax');
   let tiles;
   if(isRent){const exp=list.filter(p=>inContract(p,m)),got=exp.filter(p=>(p.rentPaid||{})[m]),late=list.reduce((t,p)=>t+MONTHS.map((_,i)=>y+'-'+pad(i+1)).filter(mm=>rentState(p,mm)==='late').length,0);
     tiles=[['Rented properties',String(list.length),''],['Rent due · '+mn,fmt(exp.reduce((t,p)=>t+p.rent,0)),''],
-      ['Rent received · '+mn,fmt(got.reduce((t,p)=>t+(+p.rentPaid[m].amt||p.rent),0)),''],['Rent months unpaid · '+y,String(late),late?' neg':''],['Assoc dues unpaid',fmt(unpaidDues),unpaidDues?' neg':'']]}
-  else{const paidYr=list.reduce((t,p)=>t+(p.duesPay||[]).filter(x=>x.paid&&(x.on||'').startsWith(y)).reduce((s,x)=>s+(+x.amt||0),0),0);
-    tiles=[['Own-use properties',String(list.length),''],['Assoc dues paid · '+y,fmt(paidYr),''],['Assoc dues unpaid',fmt(unpaidDues),unpaidDues?' neg':'']]}
+      ['Rent received · '+mn,fmt(got.reduce((t,p)=>t+(+p.rentPaid[m].amt||p.rent),0)),''],['Rent months unpaid · '+y,String(late),late?' neg':''],
+      ['Assoc dues unpaid',fmt(uDues),uDues?' neg':''],['Property tax unpaid',fmt(uTax),uTax?' neg':'']]}
+  else{const paidYr=list.reduce((t,p)=>t+['dues','tax'].reduce((s,k)=>s+pays(p,k).filter(x=>x.paid&&(x.on||'').startsWith(y)).reduce((q,x)=>q+(+x.amt||0),0),0),0);
+    tiles=[['Own-use properties',String(list.length),''],['Dues & tax paid · '+y,fmt(paidYr),''],['Assoc dues unpaid',fmt(uDues),uDues?' neg':''],['Property tax unpaid',fmt(uTax),uTax?' neg':'']]}
   $('#propTiles').innerHTML=tiles.map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
-  const a=document.activeElement;if(a&&a.closest&&a.closest('#propList .payform'))return; // don't wipe a payment being typed
+  const a=document.activeElement;if(!force&&a&&a.closest&&a.closest('#propList .payform'))return; // don't wipe a payment being typed
   $('#propList').innerHTML=list.length?list.map(p=>{
+    const ups=upToPill(p,'dues')+upToPill(p,'tax');
     let h='<div class="card stack" data-pid="'+p.id+'"><div class="row spread"><div><h2>'+esc(p.name)+'</h2><span class="small muted">'+esc([p.area,p.rented?'Rented out':'Not rented'].filter(Boolean).join(' · '))+'</span></div>'
-      +'<div class="row"><button type="button" class="btn link" data-pedit>Edit</button><button type="button" class="btn link" data-pdel>Delete</button></div></div>';
+      +'<div class="row"><button type="button" class="btn link" data-pedit>Edit</button><button type="button" class="btn link" data-pdel>Delete</button></div></div>'
+      +(ups?'<div class="row">'+ups+'</div>':'');
     if(p.rented){
       const end=p.end?Math.ceil((toDate(p.end)-toDate(today()))/864e5):null;
       const cpill=!p.end?'':end<0?'<span class="pill bad">Contract ended</span>':end<=60?'<span class="pill bad">Ends in '+end+(end===1?' day':' days')+'</span>':'<span class="pill good">Active</span>';
@@ -798,20 +838,7 @@ function renderProps(){
         +MONTHS.map((mn,i)=>{const mm=y+'-'+pad(i+1),st=rentState(p,mm),r=(p.rentPaid||{})[mm];
           return '<button type="button" class="chip '+st+'" data-rent="'+mm+'"'+(st==='off'?' disabled':'')+' title="'+(r?'Paid '+longDate(r.on):st==='late'?'Not paid, past due':'')+'"><strong>'+mn.slice(0,3)+'</strong>'+(st==='paid'?'Paid':st==='late'?'Unpaid':st==='due'?'Due':st==='future'?'–':'')+'</button>'}).join('')+'</div>';
     }
-    const dp=(p.duesPay||[]).slice().sort((a,b)=>a.from<b.from?1:-1),paidTo=dp.filter(x=>x.paid).map(x=>x.to).sort().pop();
-    h+='<div class="row spread"><h3>Assoc dues'+(p.dues?' · '+fmt(p.dues)+' · '+EVERY[p.every||0].toLowerCase():'')+'</h3><span class="small '+(paidTo&&paidTo>=today()?'muted':'neg')+'">'+(paidTo?'Paid up to '+longDate(paidTo):'No payments recorded yet')+'</span></div>';
-    if(dp.length)h+='<div class="scroll"><table class="dues"><thead><tr><th>Covering period</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>'
-      +dp.map(x=>'<tr class="'+(x.paid?'':'unpaid')+'"><td style="white-space:nowrap">'+longDate(x.from)+' – '+longDate(x.to)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+(x.paid?'<span class="pill good">Paid'+(x.on?' '+longDate(x.on):'')+'</span>':'<span class="pill bad">Unpaid</span>')+'</td>'
-        +'<td style="white-space:nowrap">'+(x.paid?'':'<button type="button" class="btn link" data-dpaid="'+x.id+'">Mark paid</button>')+'<button type="button" class="btn link" data-dedit="'+x.id+'">Edit</button><button type="button" class="btn link" data-ddel="'+x.id+'">Delete</button></td></tr>').join('')+'</tbody></table></div>';
-    const f=S.payFor&&S.payFor.pid===p.id?S.payFor:null;
-    if(f){const x=f.id?(p.duesPay||[]).find(d=>d.id===f.id):Object.assign(nextPeriod(p),{paid:true,on:today()});
-      h+='<form class="form payform" data-payform><div class="f c3"><label>Covering from</label><input type="date" name="from" value="'+esc(x.from)+'" required></div>'
-        +'<div class="f c3"><label>Covering to</label><input type="date" name="to" value="'+esc(x.to)+'" required></div>'
-        +'<div class="f c2"><label>Amount (₱)</label><input type="number" name="amt" min="0" step="0.01" inputmode="decimal" value="'+esc(x.amt)+'"></div>'
-        +'<div class="f c2"><label>Status</label><select name="paid"><option value="1"'+(x.paid?' selected':'')+'>Paid</option><option value="0"'+(x.paid?'':' selected')+'>Unpaid</option></select></div>'
-        +'<div class="f c2"><label>Paid on</label><input type="date" name="on" value="'+esc(x.on||'')+'"></div>'
-        +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add payment')+'</button><button type="button" class="btn" data-paycancel>Cancel</button><span class="msg" data-paymsg></span></div></form>';
-    } else h+='<div class="row"><button type="button" class="btn" data-dadd>Add an assoc dues payment</button></div>';
+    h+=payBlock(p,'dues')+payBlock(p,'tax');
     if(p.notes)h+='<p class="small muted" style="margin:0">'+esc(p.notes)+'</p>';
     return h+'</div>';
   }).join(''):'<div class="card empty">No '+(isRent?'rented':'own-use')+' properties yet. Tap <strong>'+(isRent?'Add a rented property':'Add an own-use property')+'</strong> to start.</div>';
@@ -820,7 +847,8 @@ function openPropForm(p){
   S.propEdit=p?p.id:null;$('#propFormTitle').textContent=p?'Edit '+p.name:S.view==='rented'?'Add a rented property':'Add an own-use property';
   const v=(id,x)=>$(id).value=x??'';
   v('#pName',p&&p.name);v('#pArea',p&&p.area);$('#pRented').value=p&&p.rented?'yes':'no';v('#pTenant',p&&p.tenant);v('#pRent',p&&p.rent||'');v('#pDue',p&&p.dueDay||'');
-  v('#pStart',p&&p.start);v('#pEnd',p&&p.end);v('#pDues',p&&p.dues||'');$('#pEvery').value=String(p?p.every??1:1);v('#pNotes',p&&p.notes);
+  v('#pStart',p&&p.start);v('#pEnd',p&&p.end);v('#pDues',p&&p.dues||'');$('#pEvery').value=String(p?p.every??1:1);
+  v('#pTax',p&&p.tax||'');$('#pTaxEvery').value=String(p?p.taxEvery??12:12);v('#pNotes',p&&p.notes);
   $('#pRentBox').hidden=$('#pRented').value!=='yes';$('#propMsg').textContent='';$('#propFormCard').hidden=false;$('#propFormCard').scrollIntoView({block:'start'});$('#pName').focus();
 }
 $('#propAddBtn').addEventListener('click',()=>{openPropForm(null);$('#pRented').value=S.view==='rented'?'yes':'no';$('#pRentBox').hidden=S.view!=='rented'});
@@ -834,34 +862,78 @@ $('#propForm').addEventListener('submit',e=>{
   if(rented&&(due<1||due>31))return msg('Enter the day of the month rent is due (1 to 31).');
   if(start&&end&&end<start)return msg('The contract end is before its start.');
   const old=S.props.find(p=>p.id===S.propEdit);
-  const p=Object.assign(old||{id:newId(),rentPaid:{},duesPay:[]},{name,area:$('#pArea').value.trim(),rented,tenant:$('#pTenant').value.trim(),rent,dueDay:due,start,end,
-    dues:parseFloat($('#pDues').value)||0,every:+$('#pEvery').value,notes:$('#pNotes').value.trim()});
-  if(!old)S.props.push(p);saveProp(p);$('#propFormCard').hidden=true;S.propEdit=null;renderProps();
+  const p=Object.assign(old||{id:newId(),rentPaid:{},duesPay:[],taxPay:[]},{name,area:$('#pArea').value.trim(),rented,tenant:$('#pTenant').value.trim(),rent,dueDay:due,start,end,
+    dues:parseFloat($('#pDues').value)||0,every:+$('#pEvery').value,tax:parseFloat($('#pTax').value)||0,taxEvery:+$('#pTaxEvery').value,notes:$('#pNotes').value.trim()});
+  if(!old)S.props.push(p);saveProp(p);$('#propFormCard').hidden=true;S.propEdit=null;renderProps(true);
   toast(rented!==(S.view==='rented')?'Saved under '+(rented?'Rented properties':'Own-use properties')+'.':old?'Property updated.':'Property added.');
 });
+
+/* proof of payment: a photo (shrunk to JPEG) or a PDF, kept in the private "proofs" folder as <user>/<property>/<payment>-<time>.<ext> */
+const proofs=()=>store.sb.storage.from('proofs');
+async function uploadProof(p,k,rec,file){
+  let blob,ext;
+  if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){if(file.size>10485760)throw{code:'big'};blob=file;ext='pdf'}
+  else if(file.type.startsWith('image/')||/\.(jpe?g|png|heic|webp)$/i.test(file.name)){blob=await b64Blob(await shrinkImage(file,2000));ext='jpg'}
+  else throw{code:'type'};
+  const path=store.user.id+'/'+p.id+'/'+rec.id+'-'+Date.now()+'.'+ext;
+  const {error}=await proofs().upload(path,blob,{contentType:ext==='pdf'?'application/pdf':'image/jpeg'});
+  if(error)throw error;
+  const old=rec.proof;rec.proof=path;saveProp(p);
+  if(old)proofs().remove([old]).catch(()=>{});
+}
+function proofError(err){
+  console.error(err);
+  return err&&err.code==='big'?'That PDF is over 10 MB. Please use a smaller file or a photo.'
+    :err&&err.code==='type'?'Please choose a photo or a PDF.'
+    :/bucket/i.test(err&&err.message||'')?'To save proofs, run supabase/properties.sql in Supabase first (see SETUP.md step 7).'
+    :'Could not upload the proof. Check your connection and try again.';
+}
+async function attachProof(p,k,rec,file){
+  toast('Uploading proof…');
+  try{await uploadProof(p,k,rec,file);renderProps(true);toast('Proof saved.')}catch(err){renderProps(true);alert(proofError(err))}
+}
+async function viewProof(path){
+  const w=window.open('','_blank');
+  const {data,error}=await proofs().createSignedUrl(path,600);
+  if(error||!data){if(w)w.close();alert('That proof is no longer available.');return}
+  if(w)w.location.href=data.signedUrl;else location.href=data.signedUrl;
+}
+const dropProofs=list=>{const paths=list.map(x=>x.proof).filter(Boolean);if(paths.length&&store.mode==='cloud')proofs().remove(paths).catch(()=>{})};
+const proofIn=document.createElement('input');proofIn.type='file';proofIn.accept='image/*,application/pdf';proofIn.hidden=true;document.body.appendChild(proofIn);
+proofIn.addEventListener('change',()=>{const f=proofIn.files[0],t=S.proofFor;proofIn.value='';S.proofFor=null;if(!f||!t)return;
+  const p=S.props.find(x=>x.id===t.pid),rec=p&&pays(p,t.kind).find(d=>d.id===t.id);if(rec)attachProof(p,t.kind,rec,f)});
+const paidToast=(p,k)=>{const to=paidUpTo(p,k);if(to)toast(PAY[k].label+' for '+p.name+' paid up to '+longDate(to)+'.')};
+
 $('#propList').addEventListener('click',e=>{
   const card=e.target.closest('[data-pid]');if(!card)return;const p=S.props.find(x=>x.id===card.dataset.pid);if(!p)return;const t=e.target.closest('button');if(!t)return;
+  const ref=v=>{const [k,id]=v.split('|');return {k,rec:pays(p,k).find(d=>d.id===id)}};
   if(t.hasAttribute('data-pedit'))return openPropForm(p);
-  if(t.hasAttribute('data-pdel')){if(confirm('Delete '+p.name+' and all its rent and assoc dues records? This cannot be undone.')){dropProp(p.id);renderProps();toast('Property deleted.')}return}
+  if(t.hasAttribute('data-pdel')){if(confirm('Delete '+p.name+' and all its rent, assoc dues and property tax records and proofs? This cannot be undone.')){dropProofs(pays(p,'dues').concat(pays(p,'tax')));dropProp(p.id);renderProps(true);toast('Property deleted.')}return}
   if(t.dataset.rent){const m=t.dataset.rent;p.rentPaid=p.rentPaid||{};
     if(p.rentPaid[m]){if(!confirm('Mark '+monthName(m)+' rent as not paid?'))return;delete p.rentPaid[m]}else p.rentPaid[m]={on:today(),amt:p.rent};
-    saveProp(p);renderProps();return}
-  if(t.hasAttribute('data-dadd')){S.payFor={pid:p.id,id:null};renderProps();document.querySelector('#propList [data-pid="'+p.id+'"] [data-payform] input')?.focus();return}
-  if(t.dataset.dedit){S.payFor={pid:p.id,id:t.dataset.dedit};renderProps();return}
-  if(t.hasAttribute('data-paycancel')){S.payFor=null;renderProps();return}
-  if(t.dataset.dpaid){const x=p.duesPay.find(d=>d.id===t.dataset.dpaid);if(x){x.paid=true;x.on=today();saveProp(p);renderProps()}return}
-  if(t.dataset.ddel){const x=p.duesPay.find(d=>d.id===t.dataset.ddel);if(x&&confirm('Delete the assoc dues record for '+longDate(x.from)+' – '+longDate(x.to)+'?')){p.duesPay=p.duesPay.filter(d=>d!==x);saveProp(p);renderProps()}return}
+    saveProp(p);renderProps(true);return}
+  if(t.dataset.padd){S.payFor={pid:p.id,kind:t.dataset.padd,id:null};renderProps(true);document.querySelector('#propList [data-pid="'+p.id+'"] [data-payform] input')?.focus();return}
+  if(t.dataset.predit){const {k,rec}=ref(t.dataset.predit);if(rec){S.payFor={pid:p.id,kind:k,id:rec.id};renderProps(true)}return}
+  if(t.hasAttribute('data-paycancel')){S.payFor=null;renderProps(true);return}
+  if(t.dataset.ppaid){const {k,rec}=ref(t.dataset.ppaid);if(rec){rec.paid=true;rec.on=today();saveProp(p);renderProps(true);paidToast(p,k)}return}
+  if(t.dataset.pview){const {rec}=ref(t.dataset.pview);if(rec&&rec.proof)viewProof(rec.proof);return}
+  if(t.dataset.pup){const {k,rec}=ref(t.dataset.pup);if(rec){S.proofFor={pid:p.id,kind:k,id:rec.id};proofIn.click()}return}
+  if(t.dataset.prdel){const {k,rec}=ref(t.dataset.prdel);if(rec&&confirm('Delete the '+PAY[k].label.toLowerCase()+' record for '+longDate(rec.from)+' – '+longDate(rec.to)+(rec.proof?' and its proof':'')+'?')){
+    dropProofs([rec]);p[PAY[k].list]=pays(p,k).filter(d=>d!==rec);saveProp(p);renderProps(true)}return}
 });
 $('#propList').addEventListener('submit',e=>{
   const f=e.target.closest('[data-payform]');if(!f)return;e.preventDefault();
-  const p=S.props.find(x=>x.id===f.closest('[data-pid]').dataset.pid),g=n=>f.elements[n].value,msg=f.querySelector('[data-paymsg]');
-  const from=g('from'),to=g('to'),amt=parseFloat(g('amt'))||0,paid=g('paid')==='1',on=g('on');
+  const k=f.dataset.payform,p=S.props.find(x=>x.id===f.closest('[data-pid]').dataset.pid),g=n=>f.elements[n].value,msg=f.querySelector('[data-paymsg]');
+  const from=g('from'),to=g('to'),amt=parseFloat(g('amt'))||0,paid=g('paid')==='1',on=g('on'),file=f.elements.proof&&f.elements.proof.files[0];
   if(!from||!to)return msg.textContent='Choose the start and end of the period it covers.';
   if(to<from)return msg.textContent='The end of the period is before its start.';
   if(!(amt>0))return msg.textContent='Enter the amount.';
-  p.duesPay=p.duesPay||[];const rec={id:S.payFor.id||newId(),from,to,amt,paid,on:paid?(on||today()):''};
-  const i=p.duesPay.findIndex(d=>d.id===rec.id);if(i>=0)p.duesPay[i]=rec;else p.duesPay.push(rec);
-  S.payFor=null;document.activeElement.blur();saveProp(p);renderProps();
+  const list=pays(p,k),old=list.find(d=>d.id===S.payFor.id);
+  const rec=Object.assign(old||{id:newId()},{from,to,amt,paid,on:paid?(on||today()):''});
+  if(!old)list.push(rec);
+  S.payFor=null;document.activeElement.blur();saveProp(p);renderProps(true);
+  if(paid)paidToast(p,k);
+  if(file)attachProof(p,k,rec,file);
 });
 
 /* ---------- log ---------- */

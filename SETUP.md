@@ -101,8 +101,9 @@ Keeping limits: receipt photos are kept for 1 year after upload, expenses for 3 
 2. Reload the app. **Rented properties** and **Own-use properties** appear in the sidebar.
 
 - **Rented properties:** monthly rent, the day it is due, contract start and end, and a month-by-month row to mark rent paid or unpaid. The contract shows "Ends in N days" from 60 days before it ends.
-- **Both pages:** assoc dues payments, each with its own covering period (from and to dates), so monthly, every 2 months, quarterly, yearly or irregular payments all fit. Each payment is marked paid (with the date) or unpaid.
-- The red number beside each page in the sidebar counts unpaid rent months this year plus unpaid assoc dues.
+- **Both pages:** assoc dues and property tax payments, each with its own covering period (from and to dates), so monthly, every 2 months, quarterly, yearly or irregular payments all fit. Each payment is marked paid (with the date) or unpaid. Each property shows "Assoc dues paid up to …" and "Property tax paid up to …" (red once that date has passed).
+- **Proof of payment:** each payment has **Upload proof** (a photo or a PDF up to 10 MB) and **View proof**. Proofs are kept in a private `proofs` folder that only your login can open, until you delete the payment.
+- The red number beside each page in the sidebar counts unpaid rent months this year plus unpaid assoc dues and property tax.
 - Title numbers are deliberately not stored.
 
 ## Differences from spec.md
