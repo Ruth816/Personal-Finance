@@ -67,6 +67,7 @@ button,input,select{font:inherit;color:inherit}
 
 /* sidebar layout */
 .app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+.app>.wrap{min-width:0;width:100%}
 .side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--side-bg);color:var(--side-ink);display:flex;flex-direction:column;gap:22px;padding:22px 14px}
 .side-brand{display:flex;align-items:center;gap:10px;padding:0 8px}
 .logo{width:36px;height:36px;border-radius:10px;background:var(--side-on);color:var(--side-on-ink);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.02em;flex:none}
@@ -116,6 +117,21 @@ body.menu-open{overflow:hidden}
 @media (max-width:600px){.grp{grid-template-columns:1fr auto}.grp .track{grid-column:1/-1;order:3}}
 .mrow{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:6px 0;font-size:14px}
 .mrow.cur strong{color:var(--accent)}
+
+/* properties */
+.pfacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 16px}
+.pfacts .k{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--rule);border-radius:8px;padding:6px 4px;min-width:66px;text-align:center;font-size:12px;cursor:pointer;background:var(--card);line-height:1.25}
+.chip strong{display:block;font-size:13px}
+.chip.paid{background:var(--good-soft);color:var(--good);border-color:transparent}
+.chip.late{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.chip.due{background:var(--note-soft);color:var(--note);border-color:transparent}
+.chip.off{opacity:.4;cursor:default}
+.payform{background:var(--paper);border-radius:10px;padding:12px}
+.payform .f input,.payform .f select{background:var(--card)}
+tr.unpaid td{color:var(--bad)}
+@media (max-width:600px){table.dues thead{display:none}table.dues tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--rule)}table.dues td{border:0;padding:2px 0}table.dues td:nth-child(3),table.dues td:nth-child(4){grid-column:span 2}}
 
 .card{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px}
 .stack{display:flex;flex-direction:column;gap:16px}
@@ -226,6 +242,8 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
     <a href="#accounts" data-go="accounts"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/></svg><span>Accounts</span></a>
     <a href="#daily" data-go="daily"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M6 17v-6M11 17V5M16 17v-9M21 17v-4"/></svg><span>Daily breakdown</span></a>
     <a href="#budget" data-go="budget"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Budget tracking</span></a>
+    <a href="#rented" data-go="rented"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M2.5 21h19"/><path d="M8 8h3M8 12h3M8 16h3"/></svg><span>Rented properties</span><span class="badge" id="navRentN" hidden></span></a>
+    <a href="#own" data-go="own"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg><span>Own-use properties</span><span class="badge" id="navOwnN" hidden></span></a>
   </nav>
   <div class="side-foot">rlw-app.com</div>
 </aside>
@@ -304,6 +322,33 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
     </div>
 
     <div class="card" id="rcptLocal" hidden><p class="muted" style="margin:0">The receipts inbox works once you are signed in to your account.</p></div>
+  </section>
+
+  <!-- PROPERTIES -->
+  <section id="v-properties" class="stack" hidden>
+    <div class="tiles" id="propTiles"></div>
+    <div class="card" id="propSetup" hidden><p class="muted" style="margin:0">To save properties to your account, run <strong>supabase/properties.sql</strong> once in Supabase (SQL Editor → New query → paste → Run), then reload this page.</p></div>
+    <div class="row"><button type="button" class="btn primary" id="propAddBtn">Add a property</button><span class="small muted">Title numbers are not kept here, for your safety.</span></div>
+    <div class="card stack" id="propFormCard" hidden>
+      <h2 id="propFormTitle">Add a property</h2>
+      <form class="form" id="propForm" autocomplete="off">
+        <div class="f c6"><label for="pName">Property name</label><input type="text" id="pName" maxlength="80" placeholder="e.g. Fort Residences condo" required><span class="hint">A name you will recognise. Please don't type the title number.</span></div>
+        <div class="f c6"><label for="pArea">City or area</label><input type="text" id="pArea" maxlength="80" placeholder="e.g. BGC, Taguig"><span class="hint"></span></div>
+        <div class="f c4"><label for="pRented">Rented out?</label><select id="pRented"><option value="no">No</option><option value="yes">Yes</option></select></div>
+        <div class="c12 form" id="pRentBox" hidden style="grid-column:span 12">
+          <div class="f c4"><label for="pTenant">Tenant (optional)</label><input type="text" id="pTenant" maxlength="80"></div>
+          <div class="f c4"><label for="pRent">Monthly rent (₱)</label><input type="number" id="pRent" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+          <div class="f c4"><label for="pDue">Rent due every month on day</label><input type="number" id="pDue" min="1" max="31" step="1" inputmode="numeric" placeholder="e.g. 5"></div>
+          <div class="f c4"><label for="pStart">Contract start</label><input type="date" id="pStart"></div>
+          <div class="f c4"><label for="pEnd">Contract end</label><input type="date" id="pEnd"></div>
+        </div>
+        <div class="f c4"><label for="pDues">Assoc dues per payment (₱)</label><input type="number" id="pDues" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div class="f c4"><label for="pEvery">Assoc dues paid</label><select id="pEvery"><option value="1">Monthly</option><option value="2">Every 2 months</option><option value="3">Quarterly (every 3 months)</option><option value="6">Every 6 months</option><option value="12">Yearly</option><option value="0">Varies (I'll set each period)</option></select></div>
+        <div class="f c12"><label for="pNotes">Notes</label><input type="text" id="pNotes" maxlength="200" placeholder="Any remarks"></div>
+        <div class="row c12"><button type="submit" class="btn primary">Save property</button><button type="button" class="btn" id="propCancel">Cancel</button><span class="msg" id="propMsg" role="status"></span></div>
+      </form>
+    </div>
+    <div class="stack" id="propList"></div>
   </section>
 
   <!-- LOG -->
@@ -528,7 +573,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -537,13 +582,13 @@ const store={mode:'loading',sb:null,user:null,pending:0,chain:Promise.resolve(),
 function setStatus(kind,text){const el=$('#status');el.className='status '+kind;$('#statusText').textContent=text;$('#signOut').hidden=store.mode!=='cloud'}
 function useLocal(text){
   store.mode='local';
-  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{}}}catch(e){store.mode='memory'}
+  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[]}}catch(e){store.mode='memory'}
   S.loaded=true;document.body.classList.remove('locked');
   cleanUp().catch(()=>{});
   setStatus('local',store.mode==='local'?(text||'Saved in this browser only, not synced to your other devices'):'Not saving: this view cannot store data');
   render();
 }
-function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget}))}catch(e){setStatus('bad','Could not save in this browser')}}}
+function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props}))}catch(e){setStatus('bad','Could not save in this browser')}}}
 /* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
 const toRow=x=>Object.assign({id:x.id,user_id:store.user.id,date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
 const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{});
@@ -579,7 +624,7 @@ const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(t
 const dbBudget=(cat,v)=>persist(()=>v>0?store.sb.from('budgets').upsert({user_id:store.user.id,cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';S.loaded=false;S.months={};S.budget={};
+  store.mode='login';S.loaded=false;S.months={};S.budget={};S.props=[];
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
@@ -590,6 +635,7 @@ async function startCloud(session){
   try{await refresh()}
   catch(e){console.error(e);useLocal('Could not reach your account. Saved in this browser only, not synced to your other devices');return}
   await loadInbox();
+  await loadProps().catch(e=>console.error('properties',e));
   cleanUp().catch(e=>console.error('clean-up',e));
 }
 async function initStore(){
@@ -636,8 +682,10 @@ function memory(){
 /* ---------- shared render ---------- */
 function optsCat(sel){return '<option value="">Choose a category</option>'+GROUPS.map(g=>'<optgroup label="'+esc(g.name)+'">'+g.cats.map(([id,n])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(n)+'</option>').join('')+'</optgroup>').join('')}
 function optsAcct(sel,first){return '<option value="">'+first+'</option>'+ACCOUNTS.map(a=>'<option'+(a===sel?' selected':'')+'>'+esc(a)+'</option>').join('')}
-const VIEWS=['dashboard','log','receipts','accounts','daily','budget'];
-const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking'};
+const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own'];
+const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties'];
+const secOf=v=>v==='rented'||v==='own'?'properties':v;
+const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties'};
 function render(){
   $('#monthLabel').textContent=monthName(S.month);
   const items=itemsOf(S.month);
@@ -645,13 +693,14 @@ function render(){
   $('#totalLabel').textContent='Spent in '+MONTHS[+S.month.slice(5)-1]+' · '+items.length+(items.length===1?' item':' items');
   $('#demoBanner').hidden=!isDemo();
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.go===S.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
-  VIEWS.forEach(v=>$('#v-'+v).hidden=v!==S.view);
+  SECTIONS.forEach(s=>$('#v-'+s).hidden=s!==secOf(S.view));
   $('#pageTitle').textContent=TITLES[S.view];
   /* the check table sits under the inbox on the Receipts page, and under the form on the Expenses log page */
   const ic=$('#importCard'),anchor=S.view==='receipts'?$('#inboxCard'):$('#v-log').firstElementChild;
   if(ic.previousElementSibling!==anchor)anchor.after(ic);
   $('#rcptLocal').hidden=store.mode==='cloud';
-  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget})[S.view](items);
+  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{}})[S.view](items);
+  renderProps();
 }
 
 /* ---------- dashboard ---------- */
@@ -682,6 +731,137 @@ $('#v-dashboard').addEventListener('click',e=>{
   if(a==='upload'){go('receipts');$('#inboxInput').click();return}
   go('log');
   if(a==='add')$('#fDate').focus();else if(a==='scan')$('#scanInput').click();else if(a==='import')$('#fileInput').click();
+});
+
+/* ---------- properties ---------- */
+/* each property is one row in public.properties: {id, data:{name, area, notes, rented, tenant, rent, dueDay, start, end,
+   rentPaid:{'YYYY-MM':{on:'YYYY-MM-DD',amt}}, dues, every (months; 0 = varies), duesPay:[{id, from, to, amt, paid, on}]}} */
+const addDays=(s,n)=>{const d=toDate(s);d.setDate(d.getDate()+n);return ymd(d)};
+const addMonths=(s,n)=>{const d=toDate(s),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return ymd(d)};
+const EVERY={1:'Monthly',2:'Every 2 months',3:'Quarterly',6:'Every 6 months',12:'Yearly',0:'Varies'};
+async function loadProps(){
+  if(store.mode!=='cloud')return;
+  const {data,error}=await store.sb.from('properties').select('id,data').order('updated_at');
+  store.props=!error;S.props=error?[]:data.map(r=>({...r.data,id:r.id}));
+  render();
+}
+function saveProp(p){
+  if(store.mode==='cloud'){if(!store.props)return;const {id,...data}=p;persist(()=>store.sb.from('properties').upsert({id,data,updated_at:new Date().toISOString()}))}
+  else saveLocal();
+}
+function dropProp(id){S.props=S.props.filter(p=>p.id!==id);if(store.mode==='cloud'){if(store.props)persist(()=>store.sb.from('properties').delete().eq('id',id))}else saveLocal()}
+function inContract(p,m){return p.rented&&p.rent>0&&(!p.start||m>=p.start.slice(0,7))&&(!p.end||m<=p.end.slice(0,7))}
+function rentState(p,m){
+  if(!inContract(p,m))return 'off';if((p.rentPaid||{})[m])return 'paid';
+  const last=new Date(+m.slice(0,4),+m.slice(5),0).getDate(),due=m+'-'+pad(Math.min(p.dueDay||1,last));
+  return today()>due?'late':m===today().slice(0,7)?'due':'future';
+}
+function propAlerts(p){
+  const late=MONTHS.map((_,i)=>today().slice(0,4)+'-'+pad(i+1)).filter(m=>rentState(p,m)==='late').length;
+  return late+(p.duesPay||[]).filter(x=>!x.paid).length;
+}
+function nextPeriod(p){
+  const list=(p.duesPay||[]).slice().sort((a,b)=>a.to<b.to?-1:1),last=list[list.length-1];
+  const from=last?addDays(last.to,1):today().slice(0,8)+'01';
+  let n=+p.every;if(!n&&last){n=Math.max(1,Math.round((toDate(last.to)-toDate(last.from))/2629800000))}if(!n)n=1;
+  return {from,to:addDays(addMonths(from,n),-1),amt:p.dues||(last?last.amt:'')};
+}
+function renderProps(){
+  const badge=(id,list)=>{const n=list.reduce((t,p)=>t+propAlerts(p),0),b=$(id);b.hidden=!n;b.textContent=n};
+  badge('#navRentN',S.props.filter(p=>p.rented));badge('#navOwnN',S.props.filter(p=>!p.rented));
+  if(secOf(S.view)!=='properties')return;
+  const isRent=S.view==='rented',list=S.props.filter(p=>!!p.rented===isRent);
+  const blocked=store.mode==='cloud'&&!store.props;$('#propSetup').hidden=!blocked||!S.loaded;$('#propAddBtn').disabled=blocked;
+  $('#propAddBtn').textContent=isRent?'Add a rented property':'Add an own-use property';
+  if(S.propView!==S.view){S.propView=S.view;$('#propFormCard').hidden=true;S.propEdit=null;S.payFor=null}
+  const m=S.month,mn=MONTHS[+m.slice(5)-1].slice(0,3),y=m.slice(0,4);
+  const unpaidDues=list.reduce((t,p)=>t+(p.duesPay||[]).filter(x=>!x.paid).reduce((s,x)=>s+(+x.amt||0),0),0);
+  let tiles;
+  if(isRent){const exp=list.filter(p=>inContract(p,m)),got=exp.filter(p=>(p.rentPaid||{})[m]),late=list.reduce((t,p)=>t+MONTHS.map((_,i)=>y+'-'+pad(i+1)).filter(mm=>rentState(p,mm)==='late').length,0);
+    tiles=[['Rented properties',String(list.length),''],['Rent due · '+mn,fmt(exp.reduce((t,p)=>t+p.rent,0)),''],
+      ['Rent received · '+mn,fmt(got.reduce((t,p)=>t+(+p.rentPaid[m].amt||p.rent),0)),''],['Rent months unpaid · '+y,String(late),late?' neg':''],['Assoc dues unpaid',fmt(unpaidDues),unpaidDues?' neg':'']]}
+  else{const paidYr=list.reduce((t,p)=>t+(p.duesPay||[]).filter(x=>x.paid&&(x.on||'').startsWith(y)).reduce((s,x)=>s+(+x.amt||0),0),0);
+    tiles=[['Own-use properties',String(list.length),''],['Assoc dues paid · '+y,fmt(paidYr),''],['Assoc dues unpaid',fmt(unpaidDues),unpaidDues?' neg':'']]}
+  $('#propTiles').innerHTML=tiles.map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
+  const a=document.activeElement;if(a&&a.closest&&a.closest('#propList .payform'))return; // don't wipe a payment being typed
+  $('#propList').innerHTML=list.length?list.map(p=>{
+    let h='<div class="card stack" data-pid="'+p.id+'"><div class="row spread"><div><h2>'+esc(p.name)+'</h2><span class="small muted">'+esc([p.area,p.rented?'Rented out':'Not rented'].filter(Boolean).join(' · '))+'</span></div>'
+      +'<div class="row"><button type="button" class="btn link" data-pedit>Edit</button><button type="button" class="btn link" data-pdel>Delete</button></div></div>';
+    if(p.rented){
+      const end=p.end?Math.ceil((toDate(p.end)-toDate(today()))/864e5):null;
+      const cpill=!p.end?'':end<0?'<span class="pill bad">Contract ended</span>':end<=60?'<span class="pill bad">Ends in '+end+(end===1?' day':' days')+'</span>':'<span class="pill good">Active</span>';
+      h+='<div class="pfacts">'+(p.tenant?'<div><span class="k">Tenant</span>'+esc(p.tenant)+'</div>':'')
+        +'<div><span class="k">Monthly rent</span><span class="num">'+fmt(p.rent)+'</span></div>'
+        +'<div><span class="k">Due every month</span>Day '+(p.dueDay||1)+'</div>'
+        +'<div><span class="k">Contract</span>'+(p.start?longDate(p.start):'?')+' – '+(p.end?longDate(p.end):'?')+' '+cpill+'</div></div>'
+        +'<h3>Rent received · '+y+' <span class="small muted">(tap a month to mark it paid or unpaid)</span></h3><div class="chips">'
+        +MONTHS.map((mn,i)=>{const mm=y+'-'+pad(i+1),st=rentState(p,mm),r=(p.rentPaid||{})[mm];
+          return '<button type="button" class="chip '+st+'" data-rent="'+mm+'"'+(st==='off'?' disabled':'')+' title="'+(r?'Paid '+longDate(r.on):st==='late'?'Not paid, past due':'')+'"><strong>'+mn.slice(0,3)+'</strong>'+(st==='paid'?'Paid':st==='late'?'Unpaid':st==='due'?'Due':st==='future'?'–':'')+'</button>'}).join('')+'</div>';
+    }
+    const dp=(p.duesPay||[]).slice().sort((a,b)=>a.from<b.from?1:-1),paidTo=dp.filter(x=>x.paid).map(x=>x.to).sort().pop();
+    h+='<div class="row spread"><h3>Assoc dues'+(p.dues?' · '+fmt(p.dues)+' · '+EVERY[p.every||0].toLowerCase():'')+'</h3><span class="small '+(paidTo&&paidTo>=today()?'muted':'neg')+'">'+(paidTo?'Paid up to '+longDate(paidTo):'No payments recorded yet')+'</span></div>';
+    if(dp.length)h+='<div class="scroll"><table class="dues"><thead><tr><th>Covering period</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>'
+      +dp.map(x=>'<tr class="'+(x.paid?'':'unpaid')+'"><td style="white-space:nowrap">'+longDate(x.from)+' – '+longDate(x.to)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+(x.paid?'<span class="pill good">Paid'+(x.on?' '+longDate(x.on):'')+'</span>':'<span class="pill bad">Unpaid</span>')+'</td>'
+        +'<td style="white-space:nowrap">'+(x.paid?'':'<button type="button" class="btn link" data-dpaid="'+x.id+'">Mark paid</button>')+'<button type="button" class="btn link" data-dedit="'+x.id+'">Edit</button><button type="button" class="btn link" data-ddel="'+x.id+'">Delete</button></td></tr>').join('')+'</tbody></table></div>';
+    const f=S.payFor&&S.payFor.pid===p.id?S.payFor:null;
+    if(f){const x=f.id?(p.duesPay||[]).find(d=>d.id===f.id):Object.assign(nextPeriod(p),{paid:true,on:today()});
+      h+='<form class="form payform" data-payform><div class="f c3"><label>Covering from</label><input type="date" name="from" value="'+esc(x.from)+'" required></div>'
+        +'<div class="f c3"><label>Covering to</label><input type="date" name="to" value="'+esc(x.to)+'" required></div>'
+        +'<div class="f c2"><label>Amount (₱)</label><input type="number" name="amt" min="0" step="0.01" inputmode="decimal" value="'+esc(x.amt)+'"></div>'
+        +'<div class="f c2"><label>Status</label><select name="paid"><option value="1"'+(x.paid?' selected':'')+'>Paid</option><option value="0"'+(x.paid?'':' selected')+'>Unpaid</option></select></div>'
+        +'<div class="f c2"><label>Paid on</label><input type="date" name="on" value="'+esc(x.on||'')+'"></div>'
+        +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add payment')+'</button><button type="button" class="btn" data-paycancel>Cancel</button><span class="msg" data-paymsg></span></div></form>';
+    } else h+='<div class="row"><button type="button" class="btn" data-dadd>Add an assoc dues payment</button></div>';
+    if(p.notes)h+='<p class="small muted" style="margin:0">'+esc(p.notes)+'</p>';
+    return h+'</div>';
+  }).join(''):'<div class="card empty">No '+(isRent?'rented':'own-use')+' properties yet. Tap <strong>'+(isRent?'Add a rented property':'Add an own-use property')+'</strong> to start.</div>';
+}
+function openPropForm(p){
+  S.propEdit=p?p.id:null;$('#propFormTitle').textContent=p?'Edit '+p.name:S.view==='rented'?'Add a rented property':'Add an own-use property';
+  const v=(id,x)=>$(id).value=x??'';
+  v('#pName',p&&p.name);v('#pArea',p&&p.area);$('#pRented').value=p&&p.rented?'yes':'no';v('#pTenant',p&&p.tenant);v('#pRent',p&&p.rent||'');v('#pDue',p&&p.dueDay||'');
+  v('#pStart',p&&p.start);v('#pEnd',p&&p.end);v('#pDues',p&&p.dues||'');$('#pEvery').value=String(p?p.every??1:1);v('#pNotes',p&&p.notes);
+  $('#pRentBox').hidden=$('#pRented').value!=='yes';$('#propMsg').textContent='';$('#propFormCard').hidden=false;$('#propFormCard').scrollIntoView({block:'start'});$('#pName').focus();
+}
+$('#propAddBtn').addEventListener('click',()=>{openPropForm(null);$('#pRented').value=S.view==='rented'?'yes':'no';$('#pRentBox').hidden=S.view!=='rented'});
+$('#propCancel').addEventListener('click',()=>{$('#propFormCard').hidden=true;S.propEdit=null});
+$('#pRented').addEventListener('change',()=>$('#pRentBox').hidden=$('#pRented').value!=='yes');
+$('#propForm').addEventListener('submit',e=>{
+  e.preventDefault();const msg=t=>$('#propMsg').textContent=t;
+  const name=$('#pName').value.trim(),rented=$('#pRented').value==='yes',rent=parseFloat($('#pRent').value)||0,due=parseInt($('#pDue').value)||0,start=$('#pStart').value,end=$('#pEnd').value;
+  if(!name)return msg('Type a name for the property.');
+  if(rented&&!(rent>0))return msg('Enter the monthly rent.');
+  if(rented&&(due<1||due>31))return msg('Enter the day of the month rent is due (1 to 31).');
+  if(start&&end&&end<start)return msg('The contract end is before its start.');
+  const old=S.props.find(p=>p.id===S.propEdit);
+  const p=Object.assign(old||{id:newId(),rentPaid:{},duesPay:[]},{name,area:$('#pArea').value.trim(),rented,tenant:$('#pTenant').value.trim(),rent,dueDay:due,start,end,
+    dues:parseFloat($('#pDues').value)||0,every:+$('#pEvery').value,notes:$('#pNotes').value.trim()});
+  if(!old)S.props.push(p);saveProp(p);$('#propFormCard').hidden=true;S.propEdit=null;renderProps();
+  toast(rented!==(S.view==='rented')?'Saved under '+(rented?'Rented properties':'Own-use properties')+'.':old?'Property updated.':'Property added.');
+});
+$('#propList').addEventListener('click',e=>{
+  const card=e.target.closest('[data-pid]');if(!card)return;const p=S.props.find(x=>x.id===card.dataset.pid);if(!p)return;const t=e.target.closest('button');if(!t)return;
+  if(t.hasAttribute('data-pedit'))return openPropForm(p);
+  if(t.hasAttribute('data-pdel')){if(confirm('Delete '+p.name+' and all its rent and assoc dues records? This cannot be undone.')){dropProp(p.id);renderProps();toast('Property deleted.')}return}
+  if(t.dataset.rent){const m=t.dataset.rent;p.rentPaid=p.rentPaid||{};
+    if(p.rentPaid[m]){if(!confirm('Mark '+monthName(m)+' rent as not paid?'))return;delete p.rentPaid[m]}else p.rentPaid[m]={on:today(),amt:p.rent};
+    saveProp(p);renderProps();return}
+  if(t.hasAttribute('data-dadd')){S.payFor={pid:p.id,id:null};renderProps();document.querySelector('#propList [data-pid="'+p.id+'"] [data-payform] input')?.focus();return}
+  if(t.dataset.dedit){S.payFor={pid:p.id,id:t.dataset.dedit};renderProps();return}
+  if(t.hasAttribute('data-paycancel')){S.payFor=null;renderProps();return}
+  if(t.dataset.dpaid){const x=p.duesPay.find(d=>d.id===t.dataset.dpaid);if(x){x.paid=true;x.on=today();saveProp(p);renderProps()}return}
+  if(t.dataset.ddel){const x=p.duesPay.find(d=>d.id===t.dataset.ddel);if(x&&confirm('Delete the assoc dues record for '+longDate(x.from)+' – '+longDate(x.to)+'?')){p.duesPay=p.duesPay.filter(d=>d!==x);saveProp(p);renderProps()}return}
+});
+$('#propList').addEventListener('submit',e=>{
+  const f=e.target.closest('[data-payform]');if(!f)return;e.preventDefault();
+  const p=S.props.find(x=>x.id===f.closest('[data-pid]').dataset.pid),g=n=>f.elements[n].value,msg=f.querySelector('[data-paymsg]');
+  const from=g('from'),to=g('to'),amt=parseFloat(g('amt'))||0,paid=g('paid')==='1',on=g('on');
+  if(!from||!to)return msg.textContent='Choose the start and end of the period it covers.';
+  if(to<from)return msg.textContent='The end of the period is before its start.';
+  if(!(amt>0))return msg.textContent='Enter the amount.';
+  p.duesPay=p.duesPay||[];const rec={id:S.payFor.id||newId(),from,to,amt,paid,on:paid?(on||today()):''};
+  const i=p.duesPay.findIndex(d=>d.id===rec.id);if(i>=0)p.duesPay[i]=rec;else p.duesPay.push(rec);
+  S.payFor=null;document.activeElement.blur();saveProp(p);renderProps();
 });
 
 /* ---------- log ---------- */
@@ -1186,7 +1366,7 @@ function shiftMonth(d){const dt=new Date(+S.month.slice(0,4),+S.month.slice(5)-1
 $('#prevM').addEventListener('click',()=>shiftMonth(-1));$('#nextM').addEventListener('click',()=>shiftMonth(1));
 function go(v){S.view=v;try{if(location.hash!=='#'+v)history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){e.preventDefault();menu(false);go(a.dataset.go)}});
-function fromHash(){const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}}
+function fromHash(){const h=location.hash.slice(1)==='properties'?'rented':location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}}
 /* phone menu */
 function menu(open){document.body.classList.toggle('menu-open',open);$('#scrim').hidden=!open;$('#menuBtn').setAttribute('aria-expanded',String(open));if(open)$('.nav a[aria-current]')?.focus()}
 $('#menuBtn').addEventListener('click',()=>menu(!document.body.classList.contains('menu-open')));
@@ -1197,7 +1377,7 @@ window.addEventListener('hashchange',fromHash);
 
 $('#fCat').innerHTML=optsCat('');$('#fAcct').innerHTML=optsAcct('','Choose an account');$('#fltAcct').innerHTML=optsAcct('','All accounts');
 $('#fDate').value=today();setDayHint();
-const h0=location.hash.slice(1);if(VIEWS.includes(h0))S.view=h0;
+const h0=location.hash.slice(1)==='properties'?'rented':location.hash.slice(1);if(VIEWS.includes(h0))S.view=h0;
 render();initStore();
 </script>
 </body>

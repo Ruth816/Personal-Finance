@@ -95,6 +95,16 @@ Using it:
 
 Keeping limits: receipt photos are kept for 1 year after upload, expenses for 3 years after their date. When anything passes its limit, a notice at the top of the app offers **Download expenses as Excel** and **Download photos** (a .zip). Nothing is deleted until you press **I have saved my copy, delete them** and confirm. Budgets are monthly amounts per category, not per month, so they are never removed.
 
+## 7. Properties (rented and own-use)
+
+1. In Supabase open **SQL Editor → New query**, paste the whole of `supabase/properties.sql`, and press **Run**.
+2. Reload the app. **Rented properties** and **Own-use properties** appear in the sidebar.
+
+- **Rented properties:** monthly rent, the day it is due, contract start and end, and a month-by-month row to mark rent paid or unpaid. The contract shows "Ends in N days" from 60 days before it ends.
+- **Both pages:** assoc dues payments, each with its own covering period (from and to dates), so monthly, every 2 months, quarterly, yearly or irregular payments all fit. Each payment is marked paid (with the date) or unpaid.
+- The red number beside each page in the sidebar counts unpaid rent months this year plus unpaid assoc dues.
+- Title numbers are deliberately not stored.
+
 ## Differences from spec.md
 
 | Spec | This build |
