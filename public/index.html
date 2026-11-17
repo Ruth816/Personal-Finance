@@ -348,8 +348,8 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
       <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Actual</th><th class="r">Additional</th><th class="r">Total income this month</th></tr></thead><tbody id="incBody"></tbody></table></div>
     </div>
     <div class="card stack">
-      <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Projected = Budget tracking · Actual = Expenses log</span></div>
-      <div class="scroll"><table class="track-t"><thead><tr><th>Expenses</th><th class="r">Projected</th><th class="r">Actual</th><th class="r">Variance</th><th>Indicator</th></tr></thead><tbody id="expBody"></tbody></table></div>
+      <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Budget = Budget tracking · Actual = Expenses log</span></div>
+      <div class="scroll"><table class="track-t"><thead><tr><th>Expenses</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th>Indicator</th></tr></thead><tbody id="expBody"></tbody></table></div>
     </div>
   </section>
 
@@ -978,7 +978,7 @@ function renderIncome(items){
   $('#incTitle').textContent='Income and expense tracking · '+mon;
   const money=v=>show?fmt(v):'<span class="mask">•••••</span>';
   const vari=v=>show?'<span class="num'+(v<0?' neg':'')+'">'+(v<0?'('+fmt(-v)+')':fmt(v))+'</span>':'<span class="mask">•••••</span>';
-  const ind=(p,a,isInc)=>!p&&!a?'<span class="ind na">–</span>':!p?'<span class="ind na">No projection</span>':(isInc?a>=p:a<=p)?'<span class="ind ok">On track</span>':'<span class="ind no">Out of track</span>';
+  const ind=(p,a,isInc)=>!p&&!a?'<span class="ind na">–</span>':!p?'<span class="ind na">'+(isInc?'No projection':'No budget')+'</span>':(isInc?a>=p:a<=p)?'<span class="ind ok">On track</span>':'<span class="ind no">Out of track</span>';
   const inp=(key,val)=>show?'<input type="number" min="0" step="100" inputmode="decimal" data-inc="'+key+'" value="'+(val||'')+'" placeholder="0" aria-label="Amount">':money(val);
   const rentDue=S.props.filter(p=>inContract(p,m)).reduce((t,p)=>t+p.rent,0),rentGot=S.props.reduce((t,p)=>{const r=(p.rentPaid||{})[m];return t+(r?(+r.amt||p.rent):0)},0);
   /* income columns: Actual | Additional | Total income this month (= Actual + Additional) */
@@ -1006,7 +1006,7 @@ function renderIncome(items){
   $('#incTiles').innerHTML=[['Total income · '+MONTHS[+m.slice(5)-1].slice(0,3),money(tI),''],['Expenses · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aE),''],['Net',show?(net<0?'('+fmt(-net)+')':fmt(net)):'<span class="mask">•••••</span>',show&&net<0?' neg':'']]
     .map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
   const lab=(sel,ls)=>document.querySelectorAll(sel+' tr').forEach(tr=>ls.forEach((l,i)=>{if(l&&tr.cells[i])tr.cells[i].dataset.l=l}));
-  lab('#incBody',['','Actual','Additional','Total income']);lab('#expBody',['','Projected','Actual','Variance']);
+  lab('#incBody',['','Actual','Additional','Total income']);lab('#expBody',['','Budget','Actual','Variance']);
 }
 $('#incShow').addEventListener('click',()=>{S.incShow=!S.incShow;render()});
 /* tapping a hidden amount (•••••) shows the amounts, so figures can be typed straight away */
