@@ -263,6 +263,10 @@ body.locked .app{grid-template-columns:minmax(0,1fr)}
 body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,body.locked #keepBanner,body.locked section[id^="v-"]:not(#v-login){display:none!important}
 .signout{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0;text-decoration:underline}
 [hidden]{display:none!important}
+body.member #propAddBtn,body.member #propImpBtn,body.member [data-pedit],body.member [data-pdel],body.member [data-padd],body.member [data-predit],body.member [data-prdel],body.member [data-pup],body.member [data-ppaid]{display:none!important}
+body.member #v-properties button:not([data-pview]){pointer-events:none}
+body.member #budgetBody input{background:transparent;border-color:transparent}
+.bytag{display:inline-block;margin-left:6px;font-size:.85em;color:var(--muted,#6b7280)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -652,7 +656,11 @@ const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:n
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
 const OK_TEXT='Saved to your account, private to you';
-const store={mode:'loading',sb:null,user:null,pending:0,chain:Promise.resolve(),scan:false};
+/* a shared login (supabase/sharing.sql) works on its owner's records: store.owner is that owner's id */
+const okText=()=>store.member?'Saved to the shared account':OK_TEXT;
+const store={mode:'loading',sb:null,user:null,pending:0,chain:Promise.resolve(),scan:false,owner:null,member:false,names:{}};
+const uid=()=>store.owner||(store.user&&store.user.id);
+const byTag=x=>x.by&&x.by!==uid()&&store.names[x.by]?' <span class="bytag">added by '+esc(store.names[x.by])+'</span>':'';
 function setStatus(kind,text){const el=$('#status');el.className='status '+kind;$('#statusText').textContent=text;$('#signOut').hidden=store.mode!=='cloud'}
 function useLocal(text){
   store.mode='local';
@@ -664,15 +672,16 @@ function useLocal(text){
 }
 function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds}))}catch(e){setStatus('bad','Could not save in this browser')}}}
 /* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
-const toRow=x=>Object.assign({id:x.id,user_id:store.user.id,date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
-const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{});
+const toRow=x=>Object.assign({id:x.id,user_id:uid(),date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
+const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{},r.added_by?{by:r.added_by}:{});
 async function fetchAll(){
   let rows=[];
   const page=async cols=>{rows=[];for(let from=0;;from+=1000){
     const {data,error}=await store.sb.from('expenses').select(cols).order('date').order('id').range(from,from+999);
     if(error)throw error;rows.push(...data);if(data.length<1000)break}};
-  try{await page('id,date,cat,descr,amt,acct,notes,ts,receipt_path');store.hasRp=true}
-  catch(e){await page('id,date,cat,descr,amt,acct,notes,ts');store.hasRp=false}
+  try{await page('id,date,cat,descr,amt,acct,notes,ts,receipt_path,added_by');store.hasRp=true}
+  catch(e){try{await page('id,date,cat,descr,amt,acct,notes,ts,receipt_path');store.hasRp=true}
+  catch(e2){await page('id,date,cat,descr,amt,acct,notes,ts');store.hasRp=false}}
   const {data:b,error:e2}=await store.sb.from('budgets').select('cat,amount');if(e2)throw e2;
   const months={},budget={};
   rows.forEach(r=>{const x=fromRow(r),m=x.date.slice(0,7);(months[m]||(months[m]=[])).push(x)});
@@ -682,28 +691,29 @@ async function fetchAll(){
 async function refresh(){
   const d=await fetchAll();
   if(store.pending)return; // a change is still being saved; keep what is on screen
-  S.months=d.months;S.budget=d.budget;S.loaded=true;setStatus('ok',OK_TEXT);render();
+  S.months=d.months;S.budget=d.budget;S.loaded=true;setStatus('ok',okText());render();
 }
 /* every change runs in order, so an undo never overtakes the delete it reverses */
 function persist(op){
   if(store.mode!=='cloud'){saveLocal();return}
   store.pending++;setStatus('','Saving…');
   store.chain=store.chain.then(op).then(r=>{if(r&&r.error)throw r.error}).then(
-    ()=>{store.pending--;if(!store.pending&&!store.failed)setStatus('ok',OK_TEXT);store.failed=false},
+    ()=>{store.pending--;if(!store.pending&&!store.failed)setStatus('ok',okText());store.failed=false},
     err=>{store.pending--;store.failed=true;console.error(err);setStatus('bad','Could not save your last change. Check your connection and edit it again.')});
 }
 const dbUpsert=x=>persist(()=>store.sb.from('expenses').upsert(toRow(x)));
 const dbDelete=id=>persist(()=>store.sb.from('expenses').delete().eq('id',id));
 const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(toRow)));
-const dbBudget=(cat,v)=>persist(()=>v>0?store.sb.from('budgets').upsert({user_id:store.user.id,cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
+const dbBudget=(cat,v)=>store.member&&!String(cat).startsWith('inc:')?undefined:persist(()=>v>0?store.sb.from('budgets').upsert({user_id:uid(),cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];
+  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
 async function startCloud(session){
   store.mode='cloud';store.user=session.user;
+  await loadMembership();
   document.body.classList.remove('locked');$('#v-login').hidden=true;
   setStatus('','Opening your saved expenses…');render();
   try{await refresh()}
@@ -711,7 +721,15 @@ async function startCloud(session){
   await loadInbox();
   await loadProps().catch(e=>console.error('properties',e));
   await loadRefunds().catch(e=>console.error('refunds',e));
-  cleanUp().catch(e=>console.error('clean-up',e));
+  if(!store.member)cleanUp().catch(e=>console.error('clean-up',e));
+}
+/* which records this login works on: its own, or (for a shared login) its owner's */
+async function loadMembership(){
+  store.owner=null;store.member=false;store.names={};
+  try{const {data,error}=await store.sb.from('members').select('member_id,owner_id,name');
+    if(!error&&data){data.forEach(r=>store.names[r.member_id]=r.name||'');const me=data.find(r=>r.member_id===store.user.id);if(me){store.owner=me.owner_id;store.member=true}}}
+  catch(e){}
+  document.body.classList.toggle('member',store.member);
 }
 async function initStore(){
   let cfg=null;
@@ -772,6 +790,7 @@ function render(){
   ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome})[S.view](items);
   renderProps();
   if(S.view==='log')renderRefunds();
+  if(store.member)document.querySelectorAll('#budgetBody input').forEach(i=>i.readOnly=true);
 }
 
 /* ---------- dashboard ---------- */
@@ -818,10 +837,11 @@ async function loadProps(){
   render();
 }
 function saveProp(p){
+  if(store.member)return;
   if(store.mode==='cloud'){if(!store.props)return;const {id,...data}=p;persist(()=>store.sb.from('properties').upsert({id,data,updated_at:new Date().toISOString()}))}
   else saveLocal();
 }
-function dropProp(id){S.props=S.props.filter(p=>p.id!==id);if(store.mode==='cloud'){if(store.props)persist(()=>store.sb.from('properties').delete().eq('id',id))}else saveLocal()}
+function dropProp(id){if(store.member)return;S.props=S.props.filter(p=>p.id!==id);if(store.mode==='cloud'){if(store.props)persist(()=>store.sb.from('properties').delete().eq('id',id))}else saveLocal()}
 function inContract(p,m){return p.rented&&p.rent>0&&(!p.start||m>=p.start.slice(0,7))&&(!p.end||m<=p.end.slice(0,7))}
 function rentState(p,m){
   if(!inContract(p,m))return 'off';if((p.rentPaid||{})[m])return 'paid';
@@ -974,6 +994,7 @@ const paidToast=(p,k)=>{const to=paidUpTo(p,k);if(to)toast(PAY[k].label+' for '+
 
 $('#propList').addEventListener('click',e=>{
   const card=e.target.closest('[data-pid]');if(!card)return;const p=S.props.find(x=>x.id===card.dataset.pid);if(!p)return;const t=e.target.closest('button');if(!t)return;
+  if(store.member&&!t.dataset.pview)return;
   const ref=v=>{const [k,id]=v.split('|');return {k,rec:pays(p,k).find(d=>d.id===id)}};
   if(t.hasAttribute('data-pedit'))return openPropForm(p);
   if(t.hasAttribute('data-pdel')){if(confirm('Delete '+p.name+' and all its rent, assoc dues and property tax records and proofs? This cannot be undone.')){dropProofs(pays(p,'dues').concat(pays(p,'tax')));dropProp(p.id);renderProps(true);toast('Property deleted.')}return}
@@ -1093,7 +1114,7 @@ async function loadRefunds(){
   render();
 }
 function saveRefund(x){
-  if(store.mode==='cloud'){if(store.refunds)persist(()=>store.sb.from('refunds').upsert({id:x.id,user_id:store.user.id,date:x.date,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts}))}
+  if(store.mode==='cloud'){if(store.refunds)persist(()=>store.sb.from('refunds').upsert({id:x.id,user_id:uid(),date:x.date,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts}))}
   else saveLocal();
 }
 function dropRefund(id){S.refunds=S.refunds.filter(x=>x.id!==id);if(store.mode==='cloud'){if(store.refunds)persist(()=>store.sb.from('refunds').delete().eq('id',id))}else saveLocal()}
@@ -1135,7 +1156,7 @@ function renderLog(items){
   const rows=items.map((x,i)=>({x,n:i+1})).filter(({x})=>(!S.fltAcct||x.acct===S.fltAcct)&&(!t||x.desc.toLowerCase().includes(t)||(x.notes||'').toLowerCase().includes(t)));
   if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty">'+(items.length?'No items match this search or account.':'Nothing logged for '+monthName(S.month)+' yet. Add the first item above.')+'</td></tr>';return}
   const filtered=rows.length!==items.length;
-  body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+'</td><td style="white-space:nowrap">'+((x.rp?'<button class="btn link" data-rcpt="'+esc(x.rp)+'">Receipt</button>':'')+'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
+  body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+byTag(x)+'</td><td style="white-space:nowrap">'+((x.rp?'<button class="btn link" data-rcpt="'+esc(x.rp)+'">Receipt</button>':'')+'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
     +'<tr class="totalrow"><td colspan="4">'+(filtered?'Total of '+rows.length+' shown':'Month total')+'</td><td class="num r">'+fmt(sum(rows.map(r=>r.x)))+'</td><td colspan="3"></td></tr>';
 }
 function findItem(id){for(const m in S.months){const x=(S.months[m]||[]).find(i=>i.id===id);if(x)return x}return null}
@@ -1441,9 +1462,9 @@ $('#inboxInput').addEventListener('change',async e=>{
     inboxMsg('Uploading '+(i+1)+' of '+files.length+'…');
     try{
       const blob=await b64Blob(await shrinkImage(files[i],1600));
-      const id=newId(),path=store.user.id+'/'+today()+'/'+id+'.jpg';
+      const id=newId(),path=uid()+'/'+today()+'/'+id+'.jpg';
       const up=await bucket().upload(path,blob,{contentType:'image/jpeg'});if(up.error)throw up.error;
-      const ins=await store.sb.from('receipts').insert({id,user_id:store.user.id,path});
+      const ins=await store.sb.from('receipts').insert({id,user_id:uid(),path});
       if(ins.error){await bucket().remove([path]);throw ins.error}
       S.inbox.push({id,path,created_at:new Date().toISOString(),state:'new'});ok++;
     }catch(err){console.error(err);bad++}
