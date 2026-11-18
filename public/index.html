@@ -194,6 +194,11 @@ tr.totalrow td{border-top:2px solid var(--ink);border-bottom:0;font-weight:600}
 #budgetBody td:nth-child(5){white-space:nowrap}
 .sharebar{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--rule);vertical-align:middle;margin-right:8px;overflow:hidden}
 .sharebar i{display:block;height:100%;background:var(--accent)}
+.catlink{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px}
+.catlink:hover,.catlink[aria-expanded="true"]{color:var(--accent);text-decoration-color:var(--accent)}
+#repCard h3{margin:4px 0 0;font-size:14px}
+#repCard .bars td{padding:6px 10px}
+@media print{body.printrep *{visibility:hidden}body.printrep #repCard,body.printrep #repCard *{visibility:visible}body.printrep #repCard{position:absolute;left:0;top:0;width:100%;border:0}body.printrep #repCard [data-repact]{display:none}}
 
 /* tiles */
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
@@ -462,8 +467,9 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
   <!-- BUDGET -->
   <section id="v-budget" class="stack" hidden>
     <div class="tiles" id="budgetTiles"></div>
+    <div class="card stack" id="repCard" hidden></div>
     <div class="card stack">
-      <div class="row spread"><h2 id="budgetTitle"></h2><span class="small muted">Variance = budget − actual. Type a monthly budget for a whole group or for any category.</span></div>
+      <div class="row spread"><h2 id="budgetTitle"></h2><span class="small muted">Variance = budget − actual. Tap a category or group name for its report. Type a monthly budget for a whole group or for any category.</span></div>
       <div class="scroll"><table><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th>% of spending</th><th>Status</th></tr></thead><tbody id="budgetBody"></tbody></table></div>
     </div>
   </section>
@@ -1571,11 +1577,54 @@ function renderBudget(items){
   const vcell=(b,a)=>(b>0||a>0)?'<td class="num r'+(b-a<0?' neg':'')+'">'+fmt(b-a)+'</td>':'<td class="num r muted">–</td>';
   $('#budgetBody').innerHTML=GROUPS.map(g=>{
     const {cb,ga,own,gb}=gInfo(g);
-    return '<tr class="group"><td>'+esc(g.name)+(own&&cb&&own!==cb?'<div class="small muted" style="font-weight:400">Categories add up to '+fmt(cb)+'</div>':'')+'</td><td class="r"><input class="budget-in" id="b-grp-'+g.id+'" data-cat="grp:'+g.id+'" type="number" min="0" step="100" inputmode="decimal" placeholder="'+(cb?cb:0)+'" value="'+(own||'')+'" aria-label="Budget for '+esc(g.name)+' (whole group)" title="Budget for the whole group. Leave empty to use the total of its categories."></td><td class="num r">'+fmt(ga)+'</td>'+vcell(gb,ga)+'<td>'+share(ga)+'</td><td>'+(gb>0&&ga>gb?'<span class="pill bad">Over by '+fmt(ga-gb)+'</span>':'')+'</td></tr>'
-      +g.cats.map(([id,name])=>{const b=+B[id]||0,a=act[id]||0;return '<tr'+(b>0&&a>b?' class="over"':'')+'><td>'+esc(name)+'</td><td class="r"><input class="budget-in" id="b-'+id+'" data-cat="'+id+'" type="number" min="0" step="100" inputmode="decimal" placeholder="0" value="'+(b||'')+'" aria-label="Budget for '+esc(name)+'"></td><td class="num r">'+(a?fmt(a):'<span class="muted">–</span>')+'</td>'+vcell(b,a)+'<td>'+(a?share(a):'')+'</td><td>'+statusPill(b,a)+'</td></tr>'}).join('');
+    return '<tr class="group"><td>'+repLink('grp:'+g.id,g.name)+(own&&cb&&own!==cb?'<div class="small muted" style="font-weight:400">Categories add up to '+fmt(cb)+'</div>':'')+'</td><td class="r"><input class="budget-in" id="b-grp-'+g.id+'" data-cat="grp:'+g.id+'" type="number" min="0" step="100" inputmode="decimal" placeholder="'+(cb?cb:0)+'" value="'+(own||'')+'" aria-label="Budget for '+esc(g.name)+' (whole group)" title="Budget for the whole group. Leave empty to use the total of its categories."></td><td class="num r">'+fmt(ga)+'</td>'+vcell(gb,ga)+'<td>'+share(ga)+'</td><td>'+(gb>0&&ga>gb?'<span class="pill bad">Over by '+fmt(ga-gb)+'</span>':'')+'</td></tr>'
+      +g.cats.map(([id,name])=>{const b=+B[id]||0,a=act[id]||0;return '<tr'+(b>0&&a>b?' class="over"':'')+'><td>'+repLink(id,name)+'</td><td class="r"><input class="budget-in" id="b-'+id+'" data-cat="'+id+'" type="number" min="0" step="100" inputmode="decimal" placeholder="0" value="'+(b||'')+'" aria-label="Budget for '+esc(name)+'"></td><td class="num r">'+(a?fmt(a):'<span class="muted">–</span>')+'</td>'+vcell(b,a)+'<td>'+(a?share(a):'')+'</td><td>'+statusPill(b,a)+'</td></tr>'}).join('');
   }).join('')+'<tr class="totalrow"><td>Total</td><td class="num r">'+fmt(tb)+'</td><td class="num r">'+fmt(total)+'</td><td class="num r'+(tb-total<0?' neg':'')+'">'+fmt(tb-total)+'</td><td><span class="num">'+(total?'100%':'')+'</span></td><td>'+(tb>0?(total>tb?'<span class="pill bad">Over by '+fmt(total-tb)+'</span>':'<span class="pill good">On track</span>'):'')+'</td></tr>';
   if(focus){const el=document.getElementById(focus.id);if(el){el.value=focus.v;el.focus()}}
+  renderReport(items);
 }
+/* ---------- category report (tap a name on Budget tracking) ---------- */
+const repLink=(key,name)=>'<button type="button" class="catlink" data-rep="'+key+'" aria-expanded="'+(S.rep===key)+'" aria-controls="repCard">'+esc(name)+'</button>';
+function repOf(key){
+  if(key.startsWith('grp:')){const g=GROUPS.find(g=>'grp:'+g.id===key);return g?{name:g.name,sub:'Whole group',ids:g.cats.map(c=>c[0]),group:true}:null}
+  const c=CAT[key];return c?{name:c.name,sub:c.group.name,ids:[key],group:false}:null;
+}
+function renderReport(items){
+  const card=$('#repCard'),r=S.rep&&repOf(S.rep);
+  if(!r){card.hidden=true;card.innerHTML='';return}
+  const B=budgetNow(),mine=items.filter(x=>r.ids.includes(x.cat)),spent=sum(mine),all=sum(items);
+  const budget=r.group?((+B[S.rep]||0)||r.ids.reduce((t,id)=>t+(+B[id]||0),0)):(+B[S.rep]||0);
+  const bar=(v,top)=>'<span class="sharebar"><i style="width:'+(top?v/top*100:0)+'%"></i></span>';
+  const tally=key=>{const m=new Map();mine.forEach(x=>{const k=key(x);const o=m.get(k)||{n:0,amt:0};o.n++;o.amt+=x.amt;m.set(k,o)});return [...m].sort((a,b)=>b[1].amt-a[1].amt)};
+  const table=(title,rows,label)=>rows.length?'<div><h3>'+title+'</h3><div class="scroll"><table class="bars"><thead><tr><th>'+label+'</th><th class="r">Items</th><th class="r">Amount</th><th>Share</th></tr></thead><tbody>'
+    +rows.map(([k,o])=>'<tr><td>'+esc(k)+'</td><td class="num r">'+o.n+'</td><td class="num r">'+fmt(o.amt)+'</td><td>'+bar(o.amt,spent)+'<span class="num">'+(spent?(o.amt/spent*100).toFixed(1):'0.0')+'%</span></td></tr>').join('')+'</tbody></table></div></div>':'';
+  /* the six months ending with the month on screen */
+  const trend=[];for(let i=5;i>=0;i--){const d=new Date(+S.month.slice(0,4),+S.month.slice(5)-1-i,1),m=d.getFullYear()+'-'+pad(d.getMonth()+1),xs=itemsOf(m).filter(x=>r.ids.includes(x.cat));trend.push([m,xs.length,sum(xs)])}
+  const top=Math.max(...trend.map(t=>t[2]));
+  const left=budget-spent;
+  const tiles=[['Spent',fmt(spent),''],['Items',String(mine.length),''],['Budget',budget?fmt(budget):'Not set',''],[left<0?'Over budget by':'Left to spend',budget?fmt(Math.abs(left)):'–',budget&&left<0?' neg':''],['Share of the month',all?(spent/all*100).toFixed(1)+'%':'0.0%','']];
+  card.hidden=false;
+  card.innerHTML='<div class="row spread"><div><h2>'+esc(r.name)+' · '+monthName(S.month)+'</h2><span class="small muted">'+esc(r.sub)+'</span></div><div class="row"><button type="button" class="btn" data-repact="print">Print</button><button type="button" class="btn" data-repact="close">Close</button></div></div>'
+    +'<div class="tiles">'+tiles.map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('')+'</div>'
+    +(mine.length?(r.group?table('By category',tally(x=>(CAT[x.cat]||{}).name||x.cat),'Category'):'')
+      +table('By place',tally(x=>x.desc),'Place')
+      +table('By account',tally(x=>x.acct),'Account'):'<div class="empty">Nothing under '+esc(r.name)+' in '+monthName(S.month)+'.</div>')
+    +'<div><h3>Last 6 months</h3><div class="scroll"><table class="bars"><thead><tr><th>Month</th><th class="r">Items</th><th class="r">Amount</th><th></th></tr></thead><tbody>'
+    +trend.map(([m,n,a])=>'<tr'+(m===S.month?' class="group"':'')+'><td>'+monthName(m)+'</td><td class="num r">'+n+'</td><td class="num r">'+(a?fmt(a):'<span class="muted">–</span>')+'</td><td>'+bar(a,top)+'</td></tr>').join('')+'</tbody></table></div></div>'
+    +(mine.length?'<div><h3>All items</h3><div class="scroll"><table><thead><tr><th>Date</th><th>Place</th>'+(r.group?'<th>Category</th>':'')+'<th>Account</th><th>Notes</th><th class="r">Amount</th></tr></thead><tbody>'
+      +mine.map(x=>'<tr><td class="num">'+dayShort(x.date)+'</td><td>'+esc(x.desc)+'</td>'+(r.group?'<td>'+esc((CAT[x.cat]||{}).name||'')+'</td>':'')+'<td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+'</td><td class="num r">'+fmt(x.amt)+'</td></tr>').join('')
+      +'<tr class="totalrow"><td colspan="'+(r.group?5:4)+'">Total</td><td class="num r">'+fmt(spent)+'</td></tr></tbody></table></div></div>':'');
+}
+$('#budgetBody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-rep]');if(!b)return;
+  S.rep=S.rep===b.dataset.rep?null:b.dataset.rep;render();
+  if(S.rep)$('#repCard').scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('#repCard').addEventListener('click',e=>{
+  const b=e.target.closest('[data-repact]');if(!b)return;
+  if(b.dataset.repact==='print'){document.body.classList.add('printrep');window.print();document.body.classList.remove('printrep');return}
+  const key=S.rep;S.rep=null;render();const el=document.querySelector('[data-rep="'+key+'"]');if(el)el.focus();
+});
 $('#budgetBody').addEventListener('change',e=>{
   const el=e.target;if(!el.dataset.cat)return;
   const v=Math.max(0,parseFloat(el.value)||0);
