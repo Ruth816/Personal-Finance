@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="RLW App">
 <meta name="theme-color" content="#161B33">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   /* Layout idea: a ruled ledger book. Header carries the month stepper and month total;
@@ -267,10 +267,112 @@ body.member #propAddBtn,body.member #propImpBtn,body.member [data-pedit],body.me
 body.member #v-properties button:not([data-pview]){pointer-events:none}
 body.member #budgetBody input{background:transparent;border-color:transparent}
 .bytag{display:inline-block;margin-left:6px;font-size:.85em;color:var(--muted,#6b7280)}
+/* ---------- cute look: pastel retro windows on a pink dotted background (screen only; print stays plain) ---------- */
+@media screen{
+body.theme-cute{
+  --paper:#FFF4F8; --card:#FFFFFF; --ink:#24204A; --muted:#55507A; --rule:#EADCF3;
+  --accent:#C42C64; --accent-soft:#FFE0EC; --on-accent:#FFFFFF;
+  --side-bg:#24204A; --side-ink:#FFF4F8; --side-muted:#CFC8F0; --side-hover:rgba(255,255,255,.1); --side-on:#FF9DC1; --side-on-ink:#24204A;
+  --good:#18825A; --good-soft:#D4F6E6; --bad:#D2344A; --bad-soft:#FFE0E4; --note:#8F5D00; --note-soft:#FFF0C4;
+  --line:#24204A; --pink:#FF9DC1; --lilac:#BBA6FF; --sky:#86D8F4; --sun:#FFCB45; --mint:#94E5C6; --peach:#FFB38A;
+  --display:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;color:var(--ink);font-weight:500;-webkit-font-smoothing:antialiased;
+  background-color:#F7A6C3;
+  background-image:radial-gradient(rgba(255,255,255,.6) 1.5px,transparent 2px);
+  background-size:24px 24px;
+
+& h1,& h2{letter-spacing:0}
+& .head h1::after{content:" ✦";color:#fff;font-size:.8em}
+& .head .status{color:var(--ink)}
+& .head .total .muted{color:var(--ink)}
+
+/* windows: thick outline, hard shadow, coloured title bar with three dots */
+& .card,& .tile,& .stepper{border:2.5px solid var(--line);box-shadow:5px 5px 0 var(--line)}
+& .card{position:relative;border-radius:18px;padding-top:50px}
+& .card::before{content:"";position:absolute;left:0;right:0;top:0;height:34px;background:var(--lilac);border-bottom:2.5px solid var(--line);border-radius:15px 15px 0 0}
+& .card::after{content:"";position:absolute;left:14px;top:10px;width:56px;height:14px;
+  background:radial-gradient(circle at 7px 7px,#FF7FAE 0 4.6px,var(--line) 5.2px 7px,transparent 7.4px),
+             radial-gradient(circle at 28px 7px,#FFD9E7 0 4.6px,var(--line) 5.2px 7px,transparent 7.4px),
+             radial-gradient(circle at 49px 7px,#D9CCFF 0 4.6px,var(--line) 5.2px 7px,transparent 7.4px)}
+& .stack>.card:nth-of-type(4n+2)::before,& .dash-grid>.card:nth-child(4n+2)::before{background:var(--sky)}
+& .stack>.card:nth-of-type(4n+3)::before,& .dash-grid>.card:nth-child(4n+3)::before{background:#FF6F9F}
+& .stack>.card:nth-of-type(4n+4)::before,& .dash-grid>.card:nth-child(4n+4)::before{background:var(--sun)}
+& .card .card{box-shadow:3px 3px 0 var(--line)}
+
+/* stat tiles: pastel sticky notes */
+& .tile{border-radius:16px}
+& .tiles>.tile:nth-child(5n+1){background:#FFF0B8}
+& .tiles>.tile:nth-child(5n+2){background:#D5F1FC}
+& .tiles>.tile:nth-child(5n+3){background:#E6DDFF}
+& .tiles>.tile:nth-child(5n+4){background:#D6F7E9}
+& .tiles>.tile:nth-child(5n+5){background:#FFE0EC}
+& .tile .k{color:var(--ink);font-weight:700}
+& .small,& .hint,& .muted{font-weight:600}
+& .head .status{background:rgba(255,255,255,.85);border-radius:999px;padding:2px 10px 2px 8px;width:max-content;max-width:100%}
+& .propicon{width:52px;height:52px;border:2.5px solid var(--line);border-radius:14px;box-shadow:3px 3px 0 var(--line);background:#fff}
+
+/* buttons: chunky pills that press down */
+& .btn{border:2px solid var(--line);border-radius:999px;background:#fff;box-shadow:2.5px 2.5px 0 var(--line);font-weight:700;transition:transform .08s,box-shadow .08s}
+& .btn:hover{transform:translate(-1px,-1px);box-shadow:3.5px 3.5px 0 var(--line);border-color:var(--line);color:var(--ink)}
+& .btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--line)}
+& .btn.primary{background:var(--pink);color:var(--ink);border-color:var(--line)}
+& .btn.primary:hover{filter:none;color:var(--ink)}
+& .btn.link{border:0;box-shadow:none;background:transparent;color:var(--accent);font-weight:700}
+& .btn.link:hover,& .btn.link:active{transform:none;box-shadow:none;text-decoration:underline}
+& .btn[disabled]:hover{transform:none;box-shadow:2.5px 2.5px 0 var(--line)}
+& .stepper{border-radius:999px;padding:4px 6px}
+& .stepper button{border-radius:999px}
+& .stepper button:hover{background:var(--accent-soft)}
+
+/* boxes */
+& .f input,& .f select,& .filter input,& .filter select,& .imp select,& .login input,& .track-t input,& .track-t select{border:2px solid var(--line);border-radius:12px;background:#FFF7FA}
+& .f label{color:var(--ink)}
+
+/* progress bars like a loading bar */
+& .track{height:14px;border:2px solid var(--line);border-radius:999px;background:#fff}
+& .track i{background:var(--sun);border-radius:999px}
+& .track i.over{background:#FF6F9F}
+
+/* tables */
+& th{color:var(--ink);border-bottom:2.5px solid var(--line)}
+& td{border-bottom:1.5px dashed var(--rule)}
+
+/* chips, badges, labels */
+& .chip{border:2px solid var(--line);border-radius:12px}
+& .chip.paid,& .chip.due{border-color:var(--line)}
+& .ind{border:1.5px solid var(--line);border-radius:999px}
+& .ind.na{border-color:transparent}
+
+/* sidebar */
+& .logo{border-radius:50%;background:var(--pink);color:var(--ink);border:2px solid #fff}
+& .nav a{border-radius:999px;border:2px solid transparent}
+& .nav a[aria-current="page"]{background:var(--pink);color:var(--ink);border-color:#fff;box-shadow:3px 3px 0 rgba(255,255,255,.35)}
+& .nav .badge{background:var(--sun);color:var(--ink);border:1.5px solid var(--ink)}
+& .side-foot::before{content:"☺ ";color:var(--sun);font-size:16px}
+& .menubtn{border:2px solid var(--line);border-radius:12px;box-shadow:2.5px 2.5px 0 var(--line)}
+
+& .toast{border:2.5px solid #fff;border-radius:999px;box-shadow:4px 4px 0 rgba(36,32,74,.35)}
+
+}
+}
+/* blue version of the cute look, used automatically for the shared (husband's) login */
+@media screen{
+body.theme-cute.tone-blue{
+  --paper:#F3F9FF; --muted:#4D5B78; --rule:#D6E6F5;
+  --accent:#1C64A8; --accent-soft:#DCEEFF;
+  --pink:#B5E0FA; --side-on:#B5E0FA;
+  background-color:#C3E3F7;
+  & .stack>.card:nth-of-type(4n+3)::before,& .dash-grid>.card:nth-child(4n+3)::before{background:var(--mint)}
+  & .tiles>.tile:nth-child(5n+5){background:#DCEEFF}
+  & .f input,& .f select,& .filter input,& .filter select,& .imp select,& .login input,& .track-t input,& .track-t select{background:#F7FBFF}
+}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
-<body>
+<body class="theme-cute">
 <div class="app">
 <aside class="side" id="side" aria-label="Main menu">
   <div class="side-brand"><span class="logo" aria-hidden="true">RLW</span><div><strong>RLW App</strong><span>Ruth's expenses</span></div></div>
@@ -707,7 +809,7 @@ const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(t
 const dbBudget=(cat,v)=>store.member&&!String(cat).startsWith('inc:')?undefined:persist(()=>v>0?store.sb.from('budgets').upsert({user_id:uid(),cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];
+  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
@@ -729,7 +831,7 @@ async function loadMembership(){
   try{const {data,error}=await store.sb.from('members').select('member_id,owner_id,name');
     if(!error&&data){data.forEach(r=>store.names[r.member_id]=r.name||'');const me=data.find(r=>r.member_id===store.user.id);if(me){store.owner=me.owner_id;store.member=true}}}
   catch(e){}
-  document.body.classList.toggle('member',store.member);
+  document.body.classList.toggle('member',store.member);document.body.classList.toggle('tone-blue',store.member);
 }
 async function initStore(){
   let cfg=null;
