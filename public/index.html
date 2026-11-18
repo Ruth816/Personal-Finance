@@ -1605,7 +1605,7 @@ function renderBudget(items){
   renderReport(items);
 }
 /* rented condo units and the Pasig house get a picture beside their name */
-const propIcon=p=>{if(!p.rented)return '';const src=/\bunit\b/i.test(p.name)?'icons/condo-rent.png':/lot 11-?b\b/i.test(p.name)?'icons/house-rent.png':/lot 13 blk 10\b/i.test(p.name)?'icons/house-key.png':'';return src?'<img class="propicon" src="'+src+'" alt="" width="44" height="44" onerror="this.remove()">':''};
+const propIcon=p=>{if(!p.rented)return '';const src=/\bunit\b/i.test(p.name)?'icons/condo-rent.png':/lot 11-?b\b/i.test(p.name)?'icons/house-rent.png':/lot 13 blk 10\b/i.test(p.name)?'icons/house-key.png':/lot 12 blk 3\b/i.test(p.name)?'icons/warehouse.png':'';return src?'<img class="propicon" src="'+src+'" alt="" width="44" height="44" onerror="this.remove()">':''};
 /* ---------- category report (tap a name on Budget tracking) ---------- */
 const repLink=(key,name)=>'<button type="button" class="catlink" data-rep="'+key+'" aria-expanded="'+(S.rep===key)+'" aria-controls="repCard">'+esc(name)+'</button>';
 function repOf(key){
