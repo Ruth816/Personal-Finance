@@ -1602,7 +1602,7 @@ function renderReport(items){
   const trend=[];for(let i=5;i>=0;i--){const d=new Date(+S.month.slice(0,4),+S.month.slice(5)-1-i,1),m=d.getFullYear()+'-'+pad(d.getMonth()+1),xs=itemsOf(m).filter(x=>r.ids.includes(x.cat));trend.push([m,xs.length,sum(xs)])}
   const top=Math.max(...trend.map(t=>t[2]));
   const left=budget-spent;
-  const tiles=[['Spent',fmt(spent),''],['Items',String(mine.length),''],['Budget',budget?fmt(budget):'Not set',''],[left<0?'Over budget by':'Left to spend',budget?fmt(Math.abs(left)):'–',budget&&left<0?' neg':''],['Share of the month',all?(spent/all*100).toFixed(1)+'%':'0.0%','']];
+  const tiles=[['Spent',fmt(spent),''],['Items',String(mine.length),''],['Budget',budget?fmt(budget):'Not set',''],[budget&&left<0?'Over budget by':'Left to spend',budget?fmt(Math.abs(left)):'–',budget&&left<0?' neg':''],['Share of the month',all?(spent/all*100).toFixed(1)+'%':'0.0%','']];
   card.hidden=false;
   card.innerHTML='<div class="row spread"><div><h2>'+esc(r.name)+' · '+monthName(S.month)+'</h2><span class="small muted">'+esc(r.sub)+'</span></div><div class="row"><button type="button" class="btn" data-repact="print">Print</button><button type="button" class="btn" data-repact="close">Close</button></div></div>'
     +'<div class="tiles">'+tiles.map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('')+'</div>'
