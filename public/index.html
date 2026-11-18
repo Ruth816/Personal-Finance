@@ -198,6 +198,23 @@ tr.totalrow td{border-top:2px solid var(--ink);border-bottom:0;font-weight:600}
 .catlink:hover,.catlink[aria-expanded="true"]{color:var(--accent);text-decoration-color:var(--accent)}
 #repCard h3{margin:4px 0 0;font-size:14px}
 #repCard .bars td{padding:6px 10px}
+@media screen{#printReport{display:none}}@media print{body:not(.printmonth) #printReport{display:none}}
+@media print{body.printmonth>*:not(#printReport){display:none!important}}
+#printReport{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:11px;padding:0}
+#printReport h1{font-size:18px;margin:0 0 2px}#printReport h2{font-size:13px;margin:16px 0 6px;border-bottom:1.5px solid #111;padding-bottom:3px}
+#printReport .sub{color:#555;margin:0 0 10px}
+#printReport table{width:100%;border-collapse:collapse;margin:0}
+#printReport th{font-size:9.5px;letter-spacing:.04em;color:#444;border-bottom:1px solid #111;padding:4px 6px;text-align:left}
+#printReport td{border-bottom:1px solid #ddd;padding:3px 6px;font-size:10.5px}
+#printReport tr{break-inside:avoid}
+#printReport .r{text-align:right;white-space:nowrap}
+#printReport .neg{color:#b00020}
+#printReport tr.g td{font-weight:700;background:#f0f1f7}
+#printReport tr.t td{font-weight:700;border-top:1.5px solid #111;border-bottom:0}
+#printReport .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px;margin:6px 0 4px}
+#printReport .sum div{border:1px solid #ccc;border-radius:6px;padding:6px 8px}#printReport .sum b{display:block;font-size:13px}
+#printReport .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+#printReport .muted{color:#666}
 @media print{body.printrep *{visibility:hidden}body.printrep #repCard,body.printrep #repCard *{visibility:visible}body.printrep #repCard{position:absolute;left:0;top:0;width:100%;border:0}body.printrep #repCard [data-repact]{display:none}}
 
 /* tiles */
@@ -314,6 +331,7 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
       <button type="button" class="btn" data-act="scan" id="dashScan" hidden>Scan a receipt photo</button>
       <button type="button" class="btn" data-act="upload" id="dashUpload" hidden>Upload receipts</button>
       <button type="button" class="btn" data-act="import">Import a statement</button>
+      <button type="button" class="btn" data-act="report">Monthly report (PDF)</button>
     </div>
     <div class="dash-grid">
       <div class="card stack"><div class="row spread"><h2 id="dashGrpTitle">Spending by group</h2><a href="#budget" data-go="budget" class="small">Budget tracking</a></div><div id="dashGroups"></div></div>
@@ -466,6 +484,7 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
 
   <!-- BUDGET -->
   <section id="v-budget" class="stack" hidden>
+    <div class="row"><button type="button" class="btn" id="monthRepBtn">Monthly report (PDF)</button></div>
     <div class="tiles" id="budgetTiles"></div>
     <div class="card stack" id="repCard" hidden></div>
     <div class="card stack">
@@ -780,6 +799,7 @@ function renderDash(items){
 $('#v-dashboard').addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(a==='upload'){go('receipts');$('#inboxInput').click();return}
+  if(a==='report'){printMonth();return}
   go('log');
   if(a==='add')$('#fDate').focus();else if(a==='scan')$('#scanInput').click();else if(a==='import')$('#fileInput').click();
 });
@@ -1625,6 +1645,44 @@ $('#repCard').addEventListener('click',e=>{
   if(b.dataset.repact==='print'){document.body.classList.add('printrep');window.print();document.body.classList.remove('printrep');return}
   const key=S.rep;S.rep=null;render();const el=document.querySelector('[data-rep="'+key+'"]');if(el)el.focus();
 });
+/* ---------- monthly report (print or save as PDF) ---------- */
+function monthReportHtml(m){
+  const items=itemsOf(m),total=sum(items),B=budgetNow(),act={};items.forEach(x=>act[x.cat]=(act[x.cat]||0)+x.amt);
+  const refs=(S.refunds||[]).filter(x=>x.date.slice(0,7)===m).sort((a,b)=>a.date<b.date?-1:1),rt=sum(refs);
+  const pct=v=>total?(v/total*100).toFixed(1)+'%':'';
+  let tb=0;const gRows=[];
+  GROUPS.forEach(g=>{
+    let cb=0,ga=0;g.cats.forEach(([id])=>{cb+=+B[id]||0;ga+=act[id]||0});const gb=(+B['grp:'+g.id]||0)||cb;tb+=gb;
+    if(!ga&&!gb)return;
+    gRows.push('<tr class="g"><td>'+esc(g.name)+'</td><td class="r">'+(gb?fmt(gb):'')+'</td><td class="r">'+fmt(ga)+'</td><td class="r'+(gb&&ga>gb?' neg':'')+'">'+(gb?fmt(gb-ga):'')+'</td><td class="r">'+pct(ga)+'</td></tr>');
+    g.cats.forEach(([id,name])=>{const b=+B[id]||0,a=act[id]||0;if(!a&&!b)return;gRows.push('<tr><td>&nbsp;&nbsp;'+esc(name)+'</td><td class="r">'+(b?fmt(b):'')+'</td><td class="r">'+(a?fmt(a):'–')+'</td><td class="r'+(b&&a>b?' neg':'')+'">'+(b?fmt(b-a):'')+'</td><td class="r">'+pct(a)+'</td></tr>')});
+  });
+  const tally=key=>{const mp=new Map();items.forEach(x=>{const k=key(x),o=mp.get(k)||{n:0,amt:0};o.n++;o.amt+=x.amt;mp.set(k,o)});return [...mp].sort((a,b)=>b[1].amt-a[1].amt)};
+  const small=(rows,label)=>'<table><thead><tr><th>'+label+'</th><th class="r">Items</th><th class="r">Amount</th><th class="r">Share</th></tr></thead><tbody>'+rows.map(([k,o])=>'<tr><td>'+esc(k)+'</td><td class="r">'+o.n+'</td><td class="r">'+fmt(o.amt)+'</td><td class="r">'+pct(o.amt)+'</td></tr>').join('')+'</tbody></table>';
+  const now=new Date();
+  return '<h1>Monthly expenses report · '+monthName(m)+'</h1><p class="sub">RLW App · printed '+dayShort(ymd(now))+' '+now.getFullYear()+'</p>'
+    +'<div class="sum"><div>Total spent<b>'+fmt(total)+'</b></div><div>Items<b>'+items.length+'</b></div><div>Budget<b>'+(tb?fmt(tb):'Not set')+'</b></div>'
+    +'<div>'+(tb&&total>tb?'Over budget by':'Left to spend')+'<b'+(tb&&total>tb?' class="neg"':'')+'>'+(tb?fmt(Math.abs(tb-total)):'–')+'</b></div><div>Refunds &amp; cash back<b>'+(rt?'−'+fmt(rt):fmt(0))+'</b></div><div>Net after refunds<b>'+fmt(total-rt)+'</b></div></div>'
+    +(items.length?'<h2>Spending by group and category</h2><table><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th class="r">Share</th></tr></thead><tbody>'+gRows.join('')
+      +'<tr class="t"><td>Total</td><td class="r">'+(tb?fmt(tb):'')+'</td><td class="r">'+fmt(total)+'</td><td class="r'+(tb&&total>tb?' neg':'')+'">'+(tb?fmt(tb-total):'')+'</td><td class="r">100%</td></tr></tbody></table>'
+      +'<div class="two"><div><h2>By account</h2>'+small(tally(x=>x.acct),'Account')+'</div><div><h2>Top 10 places</h2>'+small(tally(x=>x.desc).slice(0,10),'Place')+'</div></div>'
+      +'<h2>All items ('+items.length+')</h2><table><thead><tr><th>Date</th><th>Place</th><th>Category</th><th>Account</th><th>Notes</th><th class="r">Amount</th></tr></thead><tbody>'
+      +items.map(x=>'<tr><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(x.desc)+'</td><td>'+esc((CAT[x.cat]||{}).name||x.cat)+'</td><td>'+esc(x.acct)+'</td><td class="muted">'+esc(x.notes||'')+'</td><td class="r">'+fmt(x.amt)+'</td></tr>').join('')
+      +'<tr class="t"><td colspan="5">Total</td><td class="r">'+fmt(total)+'</td></tr></tbody></table>'
+      :'<p>Nothing logged for '+monthName(m)+'.</p>')
+    +(refs.length?'<h2>Refunds &amp; cash back</h2><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Notes</th><th class="r">Amount</th></tr></thead><tbody>'
+      +refs.map(x=>'<tr><td>'+dayShort(x.date)+'</td><td>'+esc(x.desc)+'</td><td>'+esc(x.acct)+'</td><td class="muted">'+esc(x.notes||'')+'</td><td class="r">−'+fmt(x.amt)+'</td></tr>').join('')
+      +'<tr class="t"><td colspan="4">Total</td><td class="r">−'+fmt(rt)+'</td></tr></tbody></table>':'');
+}
+function printMonth(){
+  let el=$('#printReport');if(!el){el=document.createElement('div');el.id='printReport';document.body.appendChild(el)}
+  el.innerHTML=monthReportHtml(S.month);
+  const t=document.title;document.title='RLW expenses report '+monthName(S.month);
+  document.body.classList.add('printmonth');
+  const done=()=>{document.body.classList.remove('printmonth');document.title=t;window.removeEventListener('afterprint',done)};
+  window.addEventListener('afterprint',done);window.print();
+}
+$('#monthRepBtn').addEventListener('click',printMonth);
 $('#budgetBody').addEventListener('change',e=>{
   const el=e.target;if(!el.dataset.cat)return;
   const v=Math.max(0,parseFloat(el.value)||0);
