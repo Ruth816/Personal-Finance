@@ -194,6 +194,7 @@ tr.totalrow td{border-top:2px solid var(--ink);border-bottom:0;font-weight:600}
 #budgetBody td:nth-child(5){white-space:nowrap}
 .sharebar{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--rule);vertical-align:middle;margin-right:8px;overflow:hidden}
 .sharebar i{display:block;height:100%;background:var(--accent)}
+.propname{display:flex;align-items:center;gap:12px}.propicon{width:44px;height:44px;flex:none;border-radius:8px}
 .catlink{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px}
 .catlink:hover,.catlink[aria-expanded="true"]{color:var(--accent);text-decoration-color:var(--accent)}
 #repCard h3{margin:4px 0 0;font-size:14px}
@@ -891,7 +892,7 @@ function renderProps(force){
   const a=document.activeElement;if(!force&&a&&a.closest&&a.closest('#propList .payform'))return; // don't wipe a payment being typed
   $('#propList').innerHTML=list.length?list.map(p=>{
     const ups=upToPill(p,'dues')+upToPill(p,'tax');
-    let h='<div class="card stack" data-pid="'+p.id+'"><div class="row spread"><div><h2>'+esc(p.name)+'</h2><span class="small muted">'+esc([p.area,p.rented?'Rented out':'Not rented'].filter(Boolean).join(' · '))+'</span></div>'
+    let h='<div class="card stack" data-pid="'+p.id+'"><div class="row spread"><div class="propname">'+propIcon(p)+'<div><h2>'+esc(p.name)+'</h2><span class="small muted">'+esc([p.area,p.rented?'Rented out':'Not rented'].filter(Boolean).join(' · '))+'</span></div></div>'
       +'<div class="row"><button type="button" class="btn link" data-pedit>Edit</button><button type="button" class="btn link" data-pdel>Delete</button></div></div>'
       +(ups?'<div class="row">'+ups+'</div>':'');
     if(p.rented){
@@ -1603,6 +1604,8 @@ function renderBudget(items){
   if(focus){const el=document.getElementById(focus.id);if(el){el.value=focus.v;el.focus()}}
   renderReport(items);
 }
+/* rented condo units and the Pasig house get a picture beside their name */
+const propIcon=p=>{if(!p.rented)return '';const src=/\bunit\b/i.test(p.name)?'icons/condo-rent.png':/lot 11-?b\b/i.test(p.name)?'icons/house-rent.png':/lot 13 blk 10\b/i.test(p.name)?'icons/house-key.png':'';return src?'<img class="propicon" src="'+src+'" alt="" width="44" height="44" onerror="this.remove()">':''};
 /* ---------- category report (tap a name on Budget tracking) ---------- */
 const repLink=(key,name)=>'<button type="button" class="catlink" data-rep="'+key+'" aria-expanded="'+(S.rep===key)+'" aria-controls="repCard">'+esc(name)+'</button>';
 function repOf(key){
