@@ -131,6 +131,7 @@ body.menu-open{overflow:hidden}
 .payform{background:var(--paper);border-radius:10px;padding:12px}
 .payform .f input,.payform .f select{background:var(--card)}
 tr.unpaid td{color:var(--bad)}
+.good-t{color:var(--good)}
 /* income & expense tracking */
 .ind{display:inline-block;border-radius:6px;padding:2px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
 .ind.ok{background:var(--good-soft);color:var(--good)} .ind.no{background:var(--bad-soft);color:var(--bad)} .ind.na{color:var(--muted)}
@@ -429,6 +430,20 @@ body.locked .side,body.locked .menubtn,body.locked .scrim,body.locked .monthbox,
         </table>
       </div>
     </div>
+
+    <div class="card stack" id="refCard">
+      <div class="row spread"><div><h2 id="refTitle">Refunds &amp; cash back</h2><span class="small muted">Kept separate: these do not change your spending totals.</span></div><button type="button" class="btn" id="refAddBtn">Add a refund or cash back</button></div>
+      <div class="banner" id="refSetup" hidden>To save refunds to your account, run <strong>supabase/refunds.sql</strong> once in Supabase (SQL Editor → New query → paste → Run), then reload.</div>
+      <form class="form payform" id="refForm" hidden autocomplete="off">
+        <div class="f c3"><label for="rDate">Date</label><input type="date" id="rDate" required></div>
+        <div class="f c5"><label for="rDesc">Description</label><input type="text" id="rDesc" maxlength="120" placeholder="e.g. Lazada refund, card cash back"></div>
+        <div class="f c4"><label for="rAmt">Amount (₱)</label><input type="number" id="rAmt" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div class="f c6"><label for="rAcct">Account</label><select id="rAcct"></select></div>
+        <div class="f c6"><label for="rNotes">Notes</label><input type="text" id="rNotes" maxlength="200" placeholder="Any remarks"></div>
+        <div class="row c12"><button type="submit" class="btn primary" id="rSave">Save</button><button type="button" class="btn" id="rCancel">Cancel</button><span class="msg" id="rMsg" role="status"></span></div>
+      </form>
+      <div class="scroll"><table><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th>Account</th><th>Notes</th><th></th></tr></thead><tbody id="refBody"></tbody></table></div>
+    </div>
   </section>
 
   <!-- ACCOUNTS -->
@@ -561,6 +576,7 @@ const MERCHANTS=[
  ["Vercel","apps",0,["VERCEL"]],
  ["Via Mare","meals",0,["VIA MARE"]],
  ["Virginia's Bistro","meals",0,["VIRGINIAS BISTRO"]],
+ ["Watsons","vitamins",1,["WATSONS"]],
  ["Wilcon Depot","hh-maint",1,["WILCON"]],
  ["Alma Pure Ritual","shopping",1,["ALMA PURE"]],
  ["Asarai","shopping",1,["ASARAI"]],
@@ -603,7 +619,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -612,13 +628,13 @@ const store={mode:'loading',sb:null,user:null,pending:0,chain:Promise.resolve(),
 function setStatus(kind,text){const el=$('#status');el.className='status '+kind;$('#statusText').textContent=text;$('#signOut').hidden=store.mode!=='cloud'}
 function useLocal(text){
   store.mode='local';
-  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[]}}catch(e){store.mode='memory'}
+  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[]}}catch(e){store.mode='memory'}
   S.loaded=true;document.body.classList.remove('locked');
   cleanUp().catch(()=>{});
   setStatus('local',store.mode==='local'?(text||'Saved in this browser only, not synced to your other devices'):'Not saving: this view cannot store data');
   render();
 }
-function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props}))}catch(e){setStatus('bad','Could not save in this browser')}}}
+function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds}))}catch(e){setStatus('bad','Could not save in this browser')}}}
 /* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
 const toRow=x=>Object.assign({id:x.id,user_id:store.user.id,date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
 const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{});
@@ -654,7 +670,7 @@ const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(t
 const dbBudget=(cat,v)=>persist(()=>v>0?store.sb.from('budgets').upsert({user_id:store.user.id,cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';S.loaded=false;S.months={};S.budget={};S.props=[];
+  store.mode='login';S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
@@ -666,6 +682,7 @@ async function startCloud(session){
   catch(e){console.error(e);useLocal('Could not reach your account. Saved in this browser only, not synced to your other devices');return}
   await loadInbox();
   await loadProps().catch(e=>console.error('properties',e));
+  await loadRefunds().catch(e=>console.error('refunds',e));
   cleanUp().catch(e=>console.error('clean-up',e));
 }
 async function initStore(){
@@ -726,6 +743,7 @@ function render(){
   $('#rcptLocal').hidden=store.mode==='cloud';
   ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome})[S.view](items);
   renderProps();
+  if(S.view==='log')renderRefunds();
 }
 
 /* ---------- dashboard ---------- */
@@ -1036,6 +1054,47 @@ $('#propImpIn').addEventListener('change',async e=>{
     S.props.push(p);saveProp(p);
   }
   renderProps(true);toast('Added '+add.length+' properties.');
+});
+
+/* ---------- refunds & cash back (own table; never part of spending totals) ---------- */
+async function loadRefunds(){
+  if(store.mode!=='cloud')return;
+  const {data,error}=await store.sb.from('refunds').select('id,date,descr,amt,acct,notes,ts').order('date');
+  store.refunds=!error;S.refunds=error?[]:data.map(r=>({id:r.id,date:r.date,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts}));
+  render();
+}
+function saveRefund(x){
+  if(store.mode==='cloud'){if(store.refunds)persist(()=>store.sb.from('refunds').upsert({id:x.id,user_id:store.user.id,date:x.date,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts}))}
+  else saveLocal();
+}
+function dropRefund(id){S.refunds=S.refunds.filter(x=>x.id!==id);if(store.mode==='cloud'){if(store.refunds)persist(()=>store.sb.from('refunds').delete().eq('id',id))}else saveLocal()}
+function renderRefunds(){
+  const blocked=store.mode==='cloud'&&!store.refunds;$('#refSetup').hidden=!blocked||!S.loaded;$('#refAddBtn').disabled=blocked;
+  const m=S.month,list=S.refunds.filter(x=>x.date.startsWith(m)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.ts-b.ts);
+  $('#refTitle').textContent='Refunds & cash back · '+monthName(m);
+  $('#refBody').innerHTML=list.length?list.map(x=>'<tr><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(x.desc)+'</td><td class="num r good-t">−'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes)+'</td>'
+    +'<td style="white-space:nowrap"><button type="button" class="btn link" data-redit="'+x.id+'">Edit</button><button type="button" class="btn link" data-rdel="'+x.id+'">Delete</button></td></tr>').join('')
+    +'<tr class="totalrow"><td colspan="2">Month total</td><td class="num r good-t">−'+fmt(sum(list))+'</td><td colspan="3"></td></tr>'
+    :'<tr><td colspan="6" class="empty">No refunds or cash back in '+monthName(m)+'.</td></tr>';
+}
+function openRefund(x){
+  S.refEdit=x?x.id:null;$('#rDate').value=x?x.date:today();$('#rDesc').value=x?x.desc:'';$('#rAmt').value=x?x.amt:'';$('#rAcct').innerHTML=optsAcct(x?x.acct:'','Choose an account');$('#rNotes').value=x?x.notes:'';
+  $('#rSave').textContent=x?'Save changes':'Add';$('#rMsg').textContent='';$('#refForm').hidden=false;$('#rDesc').focus();
+}
+$('#refAddBtn').addEventListener('click',()=>openRefund(null));
+$('#rCancel').addEventListener('click',()=>{$('#refForm').hidden=true;S.refEdit=null});
+$('#refForm').addEventListener('submit',e=>{
+  e.preventDefault();const msg=t=>$('#rMsg').textContent=t;
+  const date=$('#rDate').value,desc=$('#rDesc').value.trim(),amt=Math.round((parseFloat($('#rAmt').value)||0)*100)/100,acct=$('#rAcct').value,notes=$('#rNotes').value.trim();
+  if(!date)return msg('Pick the date.');if(!desc)return msg('Type a short description.');if(!(amt>0))return msg('Enter the amount, more than zero.');if(!acct)return msg('Choose the account.');
+  const old=S.refunds.find(x=>x.id===S.refEdit);const x=Object.assign(old||{id:newId(),ts:Date.now()},{date,desc,amt,acct,notes});
+  if(!old)S.refunds.push(x);saveRefund(x);$('#refForm').hidden=true;S.refEdit=null;
+  if(!date.startsWith(S.month))S.month=date.slice(0,7);render();toast(old?'Refund updated.':'Refund added.');
+});
+$('#refBody').addEventListener('click',e=>{
+  const ed=e.target.closest('[data-redit]'),dl=e.target.closest('[data-rdel]');
+  if(ed){const x=S.refunds.find(r=>r.id===ed.dataset.redit);if(x)openRefund(x)}
+  if(dl){const x=S.refunds.find(r=>r.id===dl.dataset.rdel);if(x&&confirm('Delete the refund "'+x.desc+'" ('+fmt(x.amt)+')?')){dropRefund(x.id);render();toast('Refund deleted.')}}
 });
 
 /* ---------- log ---------- */
