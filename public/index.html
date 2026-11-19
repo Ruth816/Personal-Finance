@@ -391,6 +391,8 @@ body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body
 .ind.due.no{background:#FFC2CC;color:#8E0F27;box-shadow:2px 2px 0 var(--line,#24204A)}
 .ind.due.no::before{content:"⚠ "}
 .vgroup{display:flex;align-items:baseline;gap:12px;padding:6px 4px 0}.vgroup h2{font-size:22px}.vgroup .small{background:rgba(255,255,255,.85);border-radius:999px;padding:2px 10px;font-weight:700}
+.upq{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.upq .btn{font-size:13.5px;padding:7px 12px}
+body.member .upq{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -1469,7 +1471,7 @@ function vehRecords(v){
       +(cloud?'<button type="button" class="btn link" data-vrup="'+v.id+'|'+r.id+'">'+(r.proof?'Replace proof':'Upload proof')+'</button>':'')
       +'<button type="button" class="btn link" data-vredit="'+v.id+'|'+r.id+'">Edit</button><button type="button" class="btn link" data-vrdel="'+v.id+'|'+r.id+'">Delete</button></td></tr>').join('')+'</tbody></table></div>';
   const f=S.vrecFor&&S.vrecFor.vid===v.id?S.vrecFor:null;
-  if(f){const r=f.id?vrecs(v).find(x=>x.id===f.id):{date:today(),type:recTypes(v)[2]};
+  if(f){const r=f.id?vrecs(v).find(x=>x.id===f.id):{date:today(),type:f.type||recTypes(v)[2]};
     h+='<form class="form payform" data-vrform="'+v.id+'" autocomplete="off">'
       +'<div class="f c3"><label>Date</label><input type="date" name="date" value="'+esc(r.date||'')+'" required></div>'
       +'<div class="f c3"><label>Record</label><select name="type">'+recTypes(v).map(x=>'<option'+(x===r.type?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'
@@ -1479,7 +1481,8 @@ function vehRecords(v){
       +'<div class="f c8"><label>Notes</label><input type="text" name="notes" maxlength="200" value="'+esc(r.notes||'')+'" placeholder="e.g. Change oil, Toyota Alabang; OR/CR renewed at LTO"></div>'
       +(cloud?'<div class="f c12"><label>Photo or PDF (receipt, OR/CR, policy, service report; optional)</label><input type="file" name="proof" accept="image/*,application/pdf"><span class="hint">'+(r.proof?'A file is already saved; choosing one replaces it.':'You can also add it later with Upload proof.')+'</span></div>':'')
       +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add record')+'</button><button type="button" class="btn" data-vrcancel="1">Cancel</button><span class="msg" data-vrmsg></span></div></form>';
-  } else h+='<div class="row"><button type="button" class="btn" data-vradd="'+v.id+'">Add a record</button><span class="small muted">Registration, insurance, PMS, repairs…</span></div>';
+  } else {const q=v.kind==='equipment'?[['Installation','Installation / warranty'],['Maintenance','Maintenance / cleaning'],['Repair','Repair receipt']]:[['Registration renewal','Registration (OR/CR)'],['Insurance renewal','Comprehensive insurance'],['CTPL (third-party) insurance','CTPL'],['Maintenance (PMS)','Maintenance / receipt']];
+    h+='<div class="upq"><span class="small"><strong>Upload</strong></span>'+q.map(([ty,lab])=>'<button type="button" class="btn" data-vrquick="'+v.id+'|'+ty+'">⬆ '+lab+'</button>').join('')+'<button type="button" class="btn link" data-vradd="'+v.id+'">Other record</button></div>'}
   return h;
 }
 async function uploadVehFile(v,r,file){
@@ -1531,6 +1534,7 @@ $('#vehList').addEventListener('click',e=>{
   if(t.dataset.vrview){const {r}=ref(t.dataset.vrview);if(r&&r.proof)viewProof(r.proof);return}
   if(store.member)return;
   if(t.dataset.vradd){S.vrecFor={vid:t.dataset.vradd,id:null};render();return}
+  if(t.dataset.vrquick){const [vid,type]=t.dataset.vrquick.split('|');S.vrecFor={vid,id:null,type};render();const fm=document.querySelector('[data-vrform="'+vid+'"]');if(fm){fm.scrollIntoView({block:'center'});const fi=fm.elements.proof;if(fi)fi.click();else fm.elements.date.focus()}return}
   if(t.dataset.vrcancel){S.vrecFor=null;render();return}
   if(t.dataset.vredit){const [vid,id]=t.dataset.vredit.split('|');S.vrecFor={vid,id};render();return}
   if(t.dataset.vrup){const [vid,id]=t.dataset.vrup.split('|');S.vrecUp={vid,id};vehFileIn.click();return}
