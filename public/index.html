@@ -474,7 +474,7 @@ body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body
         <div class="scroll"><table><thead><tr><th>Insured</th><th>Policy</th><th class="r">Premium</th><th>Paid by</th><th>Status</th></tr></thead><tbody id="dashInsBody"></tbody></table></div></div>
       <div class="card stack span2" id="dashVeh" hidden><div class="row spread"><h2>Vehicles &amp; equipment</h2><a href="#vehicles" data-go="vehicles" class="small">See all</a></div>
         <div class="tiles" id="dashVehTiles"></div>
-        <div class="scroll"><table><thead><tr><th>Item</th><th>Used by / where</th><th>Loan</th><th>Registration</th><th>Insurance / warranty</th></tr></thead><tbody id="dashVehBody"></tbody></table></div></div>
+        <div class="scroll"><table><thead><tr><th>Item</th><th>Used by / where</th><th>Loan</th><th>Registration</th><th>Insurance (comprehensive, CTPL) / warranty</th></tr></thead><tbody id="dashVehBody"></tbody></table></div></div>
     </div>
   </section>
 
@@ -577,7 +577,8 @@ body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body
         <div class="f c4"><label for="vhBought" id="vhBoughtL">Date bought</label><input type="date" id="vhBought"></div>
         <div class="f c4 vonly"><label for="vhReg">Registration expires</label><input type="date" id="vhReg"></div>
         <div class="f c4"><label for="vhInsurer" id="vhInsurerL">Car insurance with</label><input type="text" id="vhInsurer" maxlength="60"></div>
-        <div class="f c4"><label for="vhInsExp" id="vhInsExpL">Insurance expires</label><input type="date" id="vhInsExp"></div>
+        <div class="f c4"><label for="vhInsExp" id="vhInsExpL">Comprehensive insurance expires</label><input type="date" id="vhInsExp"></div>
+        <div class="f c4 vonly"><label for="vhTpl">CTPL (third-party) expires</label><input type="date" id="vhTpl"></div>
         <div class="f c4"><label for="vhPms" id="vhPmsL">Next service (PMS)</label><input type="date" id="vhPms"></div>
         <div class="f c4 vonly"><label for="vhOdo">Odometer (km)</label><input type="number" id="vhOdo" min="0" step="1" inputmode="numeric"></div>
         <div class="f c4"><label for="vhNotes">Notes</label><input type="text" id="vhNotes" maxlength="200"></div>
@@ -1426,7 +1427,7 @@ function dueChip(d,label){
   if(days<=30)return '<span class="ind due no">'+label+' due '+dShort(d)+' · '+days+' days</span>';
   return '<span class="ind due ok">'+label+(/Maint|Service/.test(label)?' due ':' to ')+dShort(d)+'</span>';
 }
-const vehAlerts=v=>[v.regExp,v.insExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=30).length;
+const vehAlerts=v=>[v.regExp,v.insExp,v.tplExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=30).length;
 function vehBadge(){const n=S.vehicles.reduce((t,v)=>t+vehAlerts(v),0),b=$('#navVehN');b.hidden=!n;b.textContent=n}
 function vehLoanCell(v){
   if(v.status!=='loan')return '<span class="ind ok">Fully paid</span>';
@@ -1444,14 +1445,14 @@ function renderVehicles(){
     const facts=(eq?[['Installed at',v.owner],['Installed',v.bought?dShort(v.bought):''],['Installer / supplier',v.user],['Cost',v.price?fmt(v.price):''],['Warranty with',v.insurer]]:[['Plate',v.plate],['Colour',v.color],['Registered to',v.owner],['Used by',v.user],['Price',v.price?fmt(v.price):''],['Bought',v.bought?dShort(v.bought):''],['Car insurance',v.insurer],['Odometer',v.odo?Number(v.odo).toLocaleString('en-PH')+' km':'']]).filter(x=>x[1]);
     return '<div class="card stack" data-vid="'+v.id+'"><div class="row spread"><div><h2>'+esc(v.name)+(v.year?' · '+esc(v.year):'')+'</h2><span class="small muted">'+esc(eq?[v.owner,v.bought?'installed '+dShort(v.bought):''].filter(Boolean).join(' · '):[v.user?'Used by '+v.user:'',v.plate].filter(Boolean).join(' · '))+'</span></div>'
       +'<div class="row"><button type="button" class="btn link" data-vedit="'+v.id+'">Edit</button><button type="button" class="btn link" data-vdel="'+v.id+'">Delete</button></div></div>'
-      +'<div class="row" style="gap:8px;flex-wrap:wrap">'+(eq?dueChip(v.insExp,'Warranty')+(v.pms?dueChip(v.pms,'Maintenance'):'')+'</div>':vehLoanCell(v).replace('<div class="small">','<span class="small" style="align-self:center">').replace(/<\/div>$/,'</span>')+dueChip(v.regExp,'Registration')+dueChip(v.insExp,'Insurance')+(v.pms?dueChip(v.pms,'Service'):'')+'</div>')
+      +'<div class="row" style="gap:8px;flex-wrap:wrap">'+(eq?dueChip(v.insExp,'Warranty')+(v.pms?dueChip(v.pms,'Maintenance'):'')+'</div>':vehLoanCell(v).replace('<div class="small">','<span class="small" style="align-self:center">').replace(/<\/div>$/,'</span>')+dueChip(v.regExp,'Registration')+dueChip(v.insExp,'Comprehensive')+(v.tplExp?dueChip(v.tplExp,'CTPL'):'')+(v.pms?dueChip(v.pms,'Service'):'')+'</div>')
       +(facts.length?'<div class="pfacts">'+facts.map(([k,x])=>'<div><span class="k">'+k+'</span>'+esc(x)+'</div>').join('')+'</div>':'')
       +(v.notes?'<p class="small muted" style="margin:0">'+esc(v.notes)+'</p>':'')+vehRecords(v)+'</div>'}).join('')
     :'<div class="card"><p class="muted" style="margin:0">'+(blocked?'Run supabase/vehicles.sql first.':'No vehicles yet. Tap Add a vehicle.')+'</p></div>';
 }
 /* records per vehicle: registration and insurance renewals, maintenance, repairs, each with an optional photo/PDF (private "proofs" folder).
    Saving a renewal or service with a "valid until / next service" date also updates that due date on the car. */
-const VREC=['Registration renewal','Insurance renewal','Maintenance (PMS)','Repair','Tires & battery','Other'],EREC=['Installation','Cleaning','Maintenance','Repair','Warranty claim','Other'];
+const VREC=['Registration renewal','Insurance renewal','CTPL (third-party) insurance','Maintenance (PMS)','Repair','Tires & battery','Other'],EREC=['Installation','Cleaning','Maintenance','Repair','Warranty claim','Other'];
 const recTypes=v=>v.kind==='equipment'?EREC:VREC;
 const vrecs=v=>v.recs||(v.recs=[]);
 function vehRecords(v){
@@ -1494,9 +1495,9 @@ function renderDashVeh(){
   const card=$('#dashVeh');card.hidden=!S.vehicles.length;if(!S.vehicles.length)return;
   const t=vehTotals();
   $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
-  $('#dashVehBody').innerHTML=S.vehicles.slice().sort((a,b)=>String(a.name).localeCompare(b.name)).map(v=>'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+'</td></tr>').join('');
+  $('#dashVehBody').innerHTML=S.vehicles.slice().sort((a,b)=>String(a.name).localeCompare(b.name)).map(v=>'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+(v.kind!=='equipment'&&v.tplExp?'<div style="margin-top:4px">'+dueChip(v.tplExp,'CTPL')+'</div>':'')+'</td></tr>').join('');
 }
-const VLAB={vehicle:{vhNameL:'Vehicle',vhOwnerL:'Registered to',vhUserL:'Used by',vhBoughtL:'Date bought',vhInsurerL:'Car insurance with',vhInsExpL:'Insurance expires',vhPmsL:'Next service (PMS)'},
+const VLAB={vehicle:{vhNameL:'Vehicle',vhOwnerL:'Registered to',vhUserL:'Used by',vhBoughtL:'Date bought',vhInsurerL:'Car insurance with',vhInsExpL:'Comprehensive insurance expires',vhPmsL:'Next service (PMS)'},
   equipment:{vhNameL:'Equipment',vhOwnerL:'Installed at',vhUserL:'Installer / supplier',vhBoughtL:'Date installed',vhInsurerL:'Warranty with',vhInsExpL:'Warranty until',vhPmsL:'Next maintenance / cleaning'}};
 function setVehKind(k){$('#vehForm').classList.toggle('equip',k==='equipment');Object.entries(VLAB[k]||VLAB.vehicle).forEach(([id,t])=>{$('#'+id).textContent=t});$('#vhName').placeholder=k==='equipment'?'e.g. Solar panels, Brentville':'e.g. Mercedes GLC 2024'}
 $('#vhKind').addEventListener('change',e=>setVehKind(e.target.value));
@@ -1504,7 +1505,7 @@ function openVehicle(v){
   S.vehEdit=v?v.id:null;const set=(id,x)=>{$(id).value=x==null?'':x};
   $('#vhKind').value=v?v.kind||'vehicle':'vehicle';setVehKind($('#vhKind').value);set('#vhName',v&&v.name);set('#vhYear',v&&v.year);set('#vhPlate',v&&v.plate);set('#vhColor',v&&v.color);set('#vhOwner',v&&v.owner);set('#vhUser',v&&v.user);$('#vhStatus').value=v?v.status||'paid':'loan';
   $('#vhLoan').innerHTML='<option value="">None / not listed</option>'+S.loans.filter(l=>l.dir==='owe').map(l=>'<option value="'+l.id+'"'+(v&&v.loan===l.id?' selected':'')+'>'+esc(l.name)+'</option>').join('');
-  set('#vhPrice',v&&v.price);set('#vhBought',v&&v.bought);set('#vhReg',v&&v.regExp);set('#vhInsurer',v&&v.insurer);set('#vhInsExp',v&&v.insExp);set('#vhPms',v&&v.pms);set('#vhOdo',v&&v.odo);set('#vhNotes',v&&v.notes);
+  set('#vhPrice',v&&v.price);set('#vhBought',v&&v.bought);set('#vhReg',v&&v.regExp);set('#vhInsurer',v&&v.insurer);set('#vhInsExp',v&&v.insExp);set('#vhTpl',v&&v.tplExp);set('#vhPms',v&&v.pms);set('#vhOdo',v&&v.odo);set('#vhNotes',v&&v.notes);
   $('#vhSave').textContent=v?'Save changes':'Add vehicle';$('#vhMsg').textContent='';$('#vehForm').hidden=false;$('#vehForm').scrollIntoView({block:'center'});$('#vhName').focus();
 }
 $('#vehAddBtn').addEventListener('click',()=>openVehicle(null));
@@ -1515,7 +1516,7 @@ $('#vehForm').addEventListener('submit',e=>{
   if(!name){$('#vhMsg').textContent='Fill in the name.';return}
   const old=S.vehEdit&&S.vehicles.find(v=>v.id===S.vehEdit),kind=$('#vhKind').value,status=kind==='equipment'?'paid':$('#vhStatus').value;
   const v=Object.assign(old||{id:newId()},{kind,name,year:txt('#vhYear',4),plate:txt('#vhPlate',12).toUpperCase(),color:txt('#vhColor',30),owner:txt('#vhOwner',60),user:txt('#vhUser',60),status,loan:status==='loan'?$('#vhLoan').value:'',
-    price:Math.round((parseFloat($('#vhPrice').value)||0)*100)/100,bought:$('#vhBought').value,regExp:$('#vhReg').value,insurer:txt('#vhInsurer',60),insExp:$('#vhInsExp').value,pms:$('#vhPms').value,odo:Math.max(0,parseInt($('#vhOdo').value,10)||0),notes:txt('#vhNotes',200)});
+    price:Math.round((parseFloat($('#vhPrice').value)||0)*100)/100,bought:$('#vhBought').value,regExp:$('#vhReg').value,insurer:txt('#vhInsurer',60),insExp:$('#vhInsExp').value,tplExp:$('#vhTpl').value,pms:$('#vhPms').value,odo:Math.max(0,parseInt($('#vhOdo').value,10)||0),notes:txt('#vhNotes',200)});
   if(!old)S.vehicles.push(v);saveVehicle(v);$('#vehForm').hidden=true;S.vehEdit=null;render();toast(old?'Vehicle updated.':'Vehicle added.');
 });
 $('#vehList').addEventListener('click',e=>{
@@ -1538,7 +1539,7 @@ $('#vehList').addEventListener('submit',e=>{
   const old=S.vrecFor&&S.vrecFor.id&&vrecs(v).find(x=>x.id===S.vrecFor.id);
   const r=Object.assign(old||{id:newId()},{date:g('date'),type:g('type'),amt:Math.round((parseFloat(g('amt'))||0)*100)/100,odo:Math.max(0,parseInt(g('odo'),10)||0),until:g('until'),notes:g('notes').trim().slice(0,200)});
   if(!old)vrecs(v).push(r);
-  if(r.until){if(r.type==='Registration renewal'&&(!v.regExp||r.until>v.regExp))v.regExp=r.until;if(r.type==='Insurance renewal'&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^(Maintenance|Cleaning|Installation)/.test(r.type)&&(!v.pms||r.until>v.pms||v.pms<=r.date))v.pms=r.until;if(r.type==='Warranty claim'&&false)v.insExp=r.until}
+  if(r.until){if(r.type==='Registration renewal'&&(!v.regExp||r.until>v.regExp))v.regExp=r.until;if(r.type==='Insurance renewal'&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^CTPL/.test(r.type)&&(!v.tplExp||r.until>v.tplExp))v.tplExp=r.until;if(/^(Maintenance|Cleaning|Installation)/.test(r.type)&&(!v.pms||r.until>v.pms||v.pms<=r.date))v.pms=r.until;if(r.type==='Warranty claim'&&false)v.insExp=r.until}
   if(r.odo&&r.odo>(+v.odo||0))v.odo=r.odo;
   const file=fm.elements.proof&&fm.elements.proof.files[0];
   S.vrecFor=null;saveVehicle(v);render();toast('Record saved for '+v.name+'.');
