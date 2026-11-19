@@ -846,7 +846,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{},loans:[],loanAll:false,loanEdit:null,loanPayFor:null,oweEdit:null,policies:[],insEdit:null};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{},loans:[],loanAll:false,loanEdit:null,loanPayFor:null,oweEdit:null,oweHist:null,policies:[],insEdit:null};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -1493,6 +1493,23 @@ const oweBal=o=>o.n?Math.round(oweLeft(o)*o.amt*100)/100:null;
 const oweNext=o=>o.first&&(!o.n||(o.paid||0)<o.n)?addMonths(o.first,(o.paid||0)*(o.every||1)):'';
 const oweEnd=o=>o.first&&o.n?addMonths(o.first,(o.n-1)*(o.every||1)):'';
 const OWE_EVERY={1:'a month',3:'every 3 months',6:'every 6 months',12:'a year'};
+/* payment history of a loan you pay: payments marked here (o.hist) plus, when a property has the same name, that property's Other payments (with their proofs) */
+const oweProp=o=>{const toks=String(o.name||'').toLowerCase().split(/[^a-z0-9]+/).filter(t=>t.length>=3);return toks.length?S.props.find(p=>{const n=norm(p.name);return toks.every(t=>n.includes(norm(t)))}):null};
+function oweHistory(o){
+  const p=oweProp(o),out=[];
+  if(p)(p.otherPay||[]).forEach(x=>out.push({date:x.from,amt:+x.amt||0,note:x.note||'',acct:x.acct||'',src:'Property card',paid:x.paid,proof:x.proof?{pid:p.id,id:x.id}:null}));
+  (o.hist||[]).forEach(h=>{if(!out.some(x=>x.date===h.date&&Math.abs(x.amt-h.amt)<0.01))out.push({date:h.date,amt:h.amt,note:'Payment '+h.k+(o.n?' of '+o.n:'')+(h.logged?' · logged as expense':''),acct:o.acct||'',src:'Marked here',paid:true})});
+  return out.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+}
+function oweHistRow(o){
+  const h=oweHistory(o),p=oweProp(o),tot=h.filter(x=>x.paid).reduce((t,x)=>t+x.amt,0);
+  const before=!h.length&&(o.paid||0)?'<p class="small muted" style="margin:0">'+(o.paid||0)+' payments were made before tracking started. New payments you mark here are listed from now on.</p>':'';
+  return '<tr class="sub"><td colspan="8"><div class="payform stack" style="gap:8px"><div class="row spread"><strong>Payment history · '+esc(o.name)+'</strong><span class="small">'+h.length+' payments · '+fmt(tot)+(p?' · from the '+esc(p.name)+' card':'')+'</span></div>'+before
+    +(h.length?'<div class="scroll"><table class="dues"><thead><tr><th>Date</th><th>What for</th><th class="r">Amount</th><th>Account</th><th></th></tr></thead><tbody>'
+      +h.map(x=>'<tr'+(x.paid?'':' class="unpaid"')+'><td style="white-space:nowrap">'+dShort(x.date)+'</td><td>'+esc(x.note)+'</td><td class="num r">'+fmt(x.amt)+'</td><td class="small">'+esc(x.acct)+'</td><td>'+(x.proof?'<button type="button" class="btn link" data-owproof="'+x.proof.pid+'|'+x.proof.id+'">View proof</button>':'')+'</td></tr>').join('')
+      +'</tbody></table></div>':'')
+    +'</div></td></tr>';
+}
 function renderOwe(){
   const list=S.loans.filter(l=>l.dir==='owe').sort((a,b)=>(oweNext(a)||'9999')<(oweNext(b)||'9999')?-1:1),td=today();
   const mo=list.reduce((t,o)=>t+(oweLeft(o)===0?0:o.amt/(o.every||1)),0),bal=list.reduce((t,o)=>t+(oweBal(o)||0),0),tot=list.reduce((t,o)=>t+(o.n?o.n*o.amt:0),0),pd=list.reduce((t,o)=>t+(o.paid||0)*o.amt,0);
@@ -1507,7 +1524,7 @@ function renderOwe(){
       +'<td class="num r"><strong>'+(o.n?fmt(oweBal(o)):'–')+'</strong>'+(o.n?'<div class="small muted">'+left+' to go'+(oweEnd(o)?' · ends '+dShort(oweEnd(o)):'')+'</div>':'<div class="small muted">add number of payments</div>')+'</td>'
       +'<td>'+(done?'<span class="ind ok">Fully paid</span>':nx?'<span class="ind '+(late?'no':'na')+'">'+(late?'Overdue · ':'')+dShort(nx)+'</span>':'–')+'</td>'
       +'<td class="small">'+esc(o.acct||'')+'</td>'
-      +'<td style="white-space:nowrap">'+(done?'':'<button type="button" class="btn link" data-owlog="'+o.id+'">Paid + log expense</button><button type="button" class="btn link" data-owpaid="'+o.id+'">Paid only</button>')+'<button type="button" class="btn link" data-owedit="'+o.id+'">Edit</button><button type="button" class="btn link" data-owdel="'+o.id+'">Delete</button></td></tr>'}).join('')
+      +'<td style="white-space:nowrap">'+(done?'':'<button type="button" class="btn link" data-owlog="'+o.id+'">Paid + log expense</button><button type="button" class="btn link" data-owpaid="'+o.id+'">Paid only</button>')+'<button type="button" class="btn link" data-owhist="'+o.id+'">'+(S.oweHist===o.id?'Hide history':'History ('+oweHistory(o).length+')')+'</button><button type="button" class="btn link" data-owedit="'+o.id+'">Edit</button><button type="button" class="btn link" data-owdel="'+o.id+'">Delete</button></td></tr>'+(S.oweHist===o.id?oweHistRow(o):'')}).join('')
     :'<tr><td colspan="8" class="empty">No loans you are paying yet.</td></tr>';
 }
 function openOwe(o){
@@ -1529,6 +1546,8 @@ $('#oweForm').addEventListener('submit',e=>{
 });
 $('#oweBody').addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.owhist){S.oweHist=S.oweHist===t.dataset.owhist?null:t.dataset.owhist;render();return}
+  if(t.dataset.owproof){const [pid,rid]=t.dataset.owproof.split('|'),p=S.props.find(x=>x.id===pid),r=p&&(p.otherPay||[]).find(x=>x.id===rid);if(r&&r.proof)viewProof(r.proof);return}
   const id=t.dataset.owlog||t.dataset.owpaid||t.dataset.owedit||t.dataset.owdel,o=S.loans.find(l=>l.id===id);if(!o)return;
   if(t.dataset.owedit){openOwe(o);return}
   if(t.dataset.owdel){if(confirm('Delete the loan "'+o.name+'"? Expenses already logged stay in the Expenses log.')){dropLoan(o.id);render()}return}
@@ -1537,7 +1556,7 @@ $('#oweBody').addEventListener('click',e=>{
     const d=today(),x={id:newId(),date:d,desc:(o.name+' – payment '+k+(o.n?' of '+o.n:'')).slice(0,120),cat:CAT.mortgage?'mortgage':'',amt:o.amt,acct:o.acct||'',notes:(o.lender?o.lender+' loan payment':'Loan payment'),ts:Date.now()};
     (S.months[d.slice(0,7)]||(S.months[d.slice(0,7)]=[])).push(x);dbInsertMany([x]);
   }
-  o.paid=k;o.lastPaid=today();saveLoan(o);render();toast('Payment '+k+' marked paid'+(t.dataset.owlog?' and added to the Expenses log.':'.'));
+  o.paid=k;o.lastPaid=today();(o.hist=o.hist||[]).push({date:today(),amt:o.amt,k,logged:!!t.dataset.owlog});saveLoan(o);render();toast('Payment '+k+' marked paid'+(t.dataset.owlog?' and added to the Expenses log.':'.'));
 });
 $('#lnCancel').addEventListener('click',()=>{$('#loanForm').hidden=true;S.loanEdit=null});
 $('#loanForm').addEventListener('submit',e=>{
