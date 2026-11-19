@@ -1721,6 +1721,8 @@ const oweProp=o=>{const toks=String(o.name||'').toLowerCase().split(/[^a-z0-9]+/
 function oweHistory(o){
   const p=oweProp(o),out=[];
   if(p)(p.otherPay||[]).forEach(x=>out.push({date:x.from,amt:+x.amt||0,note:x.note||'',acct:x.acct||'',src:'Property card',paid:x.paid,proof:x.proof?{pid:p.id,id:x.id}:null}));
+  /* payments already in the Expenses log: named after this loan, or Mortgage items of the same amount from the same account */
+  const nm=norm(o.name);Object.values(S.months).flat().forEach(x=>{if((norm(x.desc).startsWith(nm)||(x.cat==='mortgage'&&Math.abs(x.amt-o.amt)<0.01&&x.acct===o.acct))&&!out.some(y=>y.date===x.date&&Math.abs(y.amt-x.amt)<0.01))out.push({date:x.date,amt:x.amt,note:x.desc+(x.notes?' · '+x.notes:''),acct:x.acct||'',src:'Expenses log',paid:true})});
   (o.hist||[]).forEach(h=>{if(!out.some(x=>x.date===h.date&&Math.abs(x.amt-h.amt)<0.01))out.push({date:h.date,amt:h.amt,note:'Payment '+h.k+(o.n?' of '+o.n:'')+(h.logged?' · logged as expense':''),acct:o.acct||'',src:'Marked here',paid:true})});
   return out.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
 }
