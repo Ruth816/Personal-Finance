@@ -380,7 +380,11 @@ body.theme-cute.tone-blue{
 body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body.member [data-vrup],body.member #vehAddBtn,body.member [data-vedit],body.member [data-vdel],body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.member [data-agentedit]{display:none!important}
 .agent{padding:8px 0;border-bottom:1.5px dashed var(--rule)}.agent:last-child{border-bottom:0}
 #vehForm.equip .vonly{display:none}
-#oweBody tr:has(+ tr.noterow) td{border-bottom:0}.noterow td{padding-top:0}
+#oweBody tr:has(+ tr.noterow) td,#loanBody tr:has(+ tr.noterow) td{border-bottom:0}.noterow td{padding-top:0}
+/* big figures shrink to fit their tile instead of spilling out */
+.tile{container-type:inline-size;min-width:0}
+.tile .v{overflow-wrap:anywhere}
+@supports (font-size:1cqi){.tile .v,.wrap .tile .v{font-size:min(20px,11cqi);white-space:nowrap;overflow-wrap:normal}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -1659,7 +1663,7 @@ function renderLoans(){
     const b=loanBal(l),st=b<=0?'<span class="ind ok">Repaid</span>':l.due&&l.due<td?'<span class="ind no">Overdue</span>':'<span class="ind na">Open</span>';
     const pays=(l.pays||[]).slice().sort((a,c)=>a.date<c.date?-1:1).map(p=>'<div class="small good-t">Repaid '+fmt(p.amt)+' on '+dayShort(p.date)+' '+p.date.slice(0,4)+(p.acct?' · '+esc(p.acct):'')+(p.notes?' · '+esc(p.notes):'')+' <button type="button" class="btn link" data-lpdel="'+l.id+'|'+p.id+'">Remove</button></div>').join('');
     const form=S.loanPayFor===l.id?'<tr><td colspan="8"><form class="form payform" data-lpay="'+l.id+'" autocomplete="off"><div class="f c3"><label>Date repaid</label><input type="date" name="d" value="'+td+'" required></div><div class="f c3"><label>Amount (₱)</label><input type="number" name="a" min="0" step="0.01" inputmode="decimal" value="'+(b>0?b:'')+'" required></div><div class="f c3"><label>Received in</label><select name="c">'+optsAcct(l.acct||'','Choose an account')+'</select></div><div class="f c3"><label>Notes</label><input type="text" name="n" maxlength="120"></div><div class="row c12"><button type="submit" class="btn primary">Save repayment</button><button type="button" class="btn" data-lpcancel="1">Cancel</button></div></form></td></tr>':'';
-    return '<tr><td style="white-space:nowrap">'+dayShort(l.date)+'<div class="small muted">'+l.date.slice(0,4)+'</div></td><td><strong>'+esc(l.borrower)+'</strong>'+(l.notes?'<div class="small muted">'+esc(l.notes)+'</div>':'')+pays+byTag(l)+'</td><td class="num r">'+fmt(l.amt)+'</td><td class="num r good-t">'+fmt(loanPaid(l))+'</td><td class="num r"><strong>'+fmt(Math.max(b,0))+'</strong></td><td>'+esc(l.acct||'')+(l.due?'<div class="small muted">Due '+dayShort(l.due)+' '+l.due.slice(0,4)+'</div>':'')+'</td><td>'+st+'</td><td style="white-space:nowrap">'+(b>0?'<button type="button" class="btn link" data-lpadd="'+l.id+'">Add repayment</button>':'')+'<button type="button" class="btn link" data-ledit="'+l.id+'">Edit</button><button type="button" class="btn link" data-ldel="'+l.id+'">Delete</button></td></tr>'+form}).join('')
+    return '<tr><td style="white-space:nowrap">'+dayShort(l.date)+'<div class="small muted">'+l.date.slice(0,4)+'</div></td><td><strong>'+esc(l.borrower)+'</strong>'+byTag(l)+'</td><td class="num r">'+fmt(l.amt)+'</td><td class="num r good-t">'+fmt(loanPaid(l))+'</td><td class="num r"><strong>'+fmt(Math.max(b,0))+'</strong></td><td>'+esc(l.acct||'')+(l.due?'<div class="small muted">Due '+dayShort(l.due)+' '+l.due.slice(0,4)+'</div>':'')+'</td><td>'+st+'</td><td style="white-space:nowrap">'+(b>0?'<button type="button" class="btn link" data-lpadd="'+l.id+'">Add repayment</button>':'')+'<button type="button" class="btn link" data-ledit="'+l.id+'">Edit</button><button type="button" class="btn link" data-ldel="'+l.id+'">Delete</button></td></tr>'+(l.notes||pays?'<tr class="noterow"><td colspan="8">'+(l.notes?'<div class="small muted">'+esc(l.notes)+'</div>':'')+pays+'</td></tr>':'')+form}).join('')
     :'<tr><td colspan="8" class="empty">'+(all.length?'All loans are fully repaid. Tick "Show fully repaid loans" to see them.':'No loans yet. Tap Add a loan.')+'</td></tr>';
   $('#loanAllChk').checked=!!S.loanAll;
   renderOwe();
