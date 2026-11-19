@@ -377,7 +377,7 @@ body.theme-cute.tone-blue{
 }
 .track-t input.incnote{width:220px;min-width:160px;text-align:left;font-family:var(--body)}
 .toast.verbar{top:16px;bottom:auto;z-index:40}
-body.member #insAddBtn,body.member [data-iedit],body.member [data-idel]{display:none!important}
+body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.member [data-agentedit]{display:none!important}
 .agent{padding:8px 0;border-bottom:1.5px dashed var(--rule)}.agent:last-child{border-bottom:0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
@@ -1351,7 +1351,10 @@ function renderInsurance(){
   const paid=all.filter(p=>p.kind==='paid');
   $('#insPaid').innerHTML=paid.length?paid.map(p=>'<tr><td><strong>'+esc(p.insured)+'</strong>'+(p.notes?'<div class="small muted">'+esc(p.notes)+'</div>':'')+'</td><td>'+insPolicy(p)+'</td><td class="num r">'+fmt(+p.sum||0)+'</td><td class="small">'+esc(p.ends||'')+'</td><td class="small">'+(p.maturity?dShort(p.maturity):esc(p.maturityText||''))+'</td>'+insActs(p)+'</tr>').join(''):none(6,'None.');
   const ag={};all.forEach(p=>{if(p.agent&&!ag[p.insurer])ag[p.insurer]=p.agent});
-  $('#insAgents').innerHTML=Object.keys(ag).length?Object.entries(ag).map(([k,v])=>'<div class="agent"><strong>'+esc(k)+'</strong><div class="small">'+esc(v)+'</div></div>').join(''):'<p class="small muted" style="margin:0">No agents saved yet.</p>';
+  S.policies.forEach(p=>{if(p.insurer&&!(p.insurer in ag))ag[p.insurer]=''});
+  $('#insAgents').innerHTML=Object.keys(ag).length?Object.entries(ag).map(([k,v])=>S.agentEdit===k
+    ?'<form class="agent row" data-agentform="'+esc(k)+'" autocomplete="off"><strong style="min-width:150px">'+esc(k)+'</strong><input type="text" name="v" maxlength="120" value="'+esc(v)+'" placeholder="Name · phone · email" style="flex:1;min-width:200px;border:2px solid var(--line);border-radius:12px;padding:8px 10px;background:#FFF7FA"><button type="submit" class="btn primary">Save</button><button type="button" class="btn" data-agentcancel="1">Cancel</button></form>'
+    :'<div class="agent row spread"><div><strong>'+esc(k)+'</strong><div class="small">'+(v?esc(v):'<span class="muted">No agent saved</span>')+'</div></div><button type="button" class="btn link" data-agentedit="'+esc(k)+'">Edit</button></div>').join(''):'<p class="small muted" style="margin:0">No agents saved yet.</p>';
 }
 function renderDashIns(){
   const card=$('#dashIns');card.hidden=!S.policies.length;if(!S.policies.length)return;
@@ -1381,9 +1384,18 @@ $('#insForm').addEventListener('submit',e=>{
     payMode:txt('#ipMode',80),income:txt('#ipIncome',120),agent:txt('#ipAgent',120),notes:txt('#ipNotes',200)});
   if(!old)S.policies.push(p);savePolicy(p);$('#insForm').hidden=true;S.insEdit=null;render();toast(old?'Policy updated.':'Policy added.');
 });
+/* editing an agent updates the agent on every policy from that insurer */
+$('#insAgents').addEventListener('submit',e=>{
+  const f=e.target.closest('[data-agentform]');if(!f)return;e.preventDefault();if(store.member)return;
+  const k=f.dataset.agentform,v=f.elements.v.value.trim().slice(0,120);
+  S.policies.filter(p=>p.insurer===k).forEach(p=>{p.agent=v;savePolicy(p)});
+  S.agentEdit=null;render();toast('Agent for '+k+' saved.');
+});
 $('#v-insurance').addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.iedit){const p=S.policies.find(x=>x.id===t.dataset.iedit);if(p)openPolicy(p);return}
+  if(t.dataset.agentedit!=null){S.agentEdit=t.dataset.agentedit;render();const i=document.querySelector('[data-agentform] input');if(i)i.focus();return}
+  if(t.dataset.agentcancel){S.agentEdit=null;render();return}
   if(t.dataset.idel){const p=S.policies.find(x=>x.id===t.dataset.idel);if(p&&confirm('Delete the '+p.insurer+' policy for '+p.insured+'?')){dropPolicy(p.id);render()}return}
 });
 
