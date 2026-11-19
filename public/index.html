@@ -1132,7 +1132,7 @@ function rentState(p,m){
   return today()>due?'late':m===today().slice(0,7)?'due':'future';
 }
 /* assoc dues and property tax share one kind of payment list: [{id, from, to, amt, paid, on, proof}] */
-const PAY={dues:{label:'Assoc dues',list:'duesPay',amt:'dues',every:'every',def:1},tax:{label:'Property tax',list:'taxPay',amt:'tax',every:'taxEvery',def:12},other:{label:'Other payment',list:'otherPay',amt:'',every:'',def:0}};
+const PAY={dues:{label:'Assoc dues',list:'duesPay',amt:'dues',every:'every',def:1},tax:{label:'Property tax',list:'taxPay',amt:'tax',every:'taxEvery',def:12},other:{label:'Other payment',list:'otherPay',amt:'',every:'',def:0},ins:{label:'Fire insurance',list:'insPay',amt:'insAmt',every:'insEvery',def:12}};
 const pays=(p,k)=>p[PAY[k].list]||(p[PAY[k].list]=[]);
 const paidUpTo=(p,k)=>pays(p,k).filter(x=>x.paid).map(x=>x.to).sort().pop()||'';
 const unpaidOf=(list,k)=>list.reduce((t,p)=>t+pays(p,k).filter(x=>!x.paid).reduce((s,x)=>s+(+x.amt||0),0),0);
@@ -1150,7 +1150,7 @@ function nextPeriod(p,k){
 function upToPill(p,k){
   const to=paidUpTo(p,k),c=PAY[k];if(!to&&!pays(p,k).length&&!p[c.amt])return '';
   if(!to)return '<span class="pill bad">'+c.label+': no payment yet</span>';
-  return '<span class="pill '+(to>=today()?'good':'bad')+'">'+c.label+' paid up to '+longDate(to)+(to>=today()?'':' · now due')+'</span>';
+  return '<span class="pill '+(to>=today()?'good':'bad')+'">'+c.label+(k==='ins'?' valid to ':' paid up to ')+longDate(to)+(to>=today()?'':(k==='ins'?' · expired':' · now due'))+'</span>';
 }
 /* one-off payments on a property (full payment, down payment, renovation, documents), each with its own proof */
 function otherBlock(p){
@@ -1194,7 +1194,7 @@ function payBlock(p,k){if(k==='other')return otherBlock(p);
       +'<div class="f c2"><label>Paid on</label><input type="date" name="on" value="'+esc(x.on||'')+'"></div>'
       +(cloud?'<div class="f c12"><label>Proof of payment (photo or PDF, optional)</label><input type="file" name="proof" accept="image/*,application/pdf"><span class="hint">'+(x.proof?'A proof is already saved; choosing a file replaces it.':'You can also add it later with Upload proof.')+'</span></div>':'')
       +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add payment')+'</button><button type="button" class="btn" data-paycancel>Cancel</button><span class="msg" data-paymsg></span></div></form>';
-  } else h+='<div class="row"><button type="button" class="btn" data-padd="'+k+'">Add '+(k==='dues'?'an assoc dues':'a property tax')+' payment</button></div>';
+  } else h+='<div class="row"><button type="button" class="btn" data-padd="'+k+'">'+(k==='ins'?'⬆ Add a fire insurance policy':'Add '+(k==='dues'?'an assoc dues':'a property tax')+' payment')+'</button>'+(k==='ins'?'<span class="small muted">Policy period, premium and the policy file</span>':'')+'</div>';
   return h;
 }
 function renderProps(force){
@@ -1217,7 +1217,7 @@ function renderProps(force){
   $('#propTiles').innerHTML=tiles.map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
   const a=document.activeElement;if(!force&&a&&a.closest&&a.closest('#propList .payform'))return; // don't wipe a payment being typed
   $('#propList').innerHTML=list.length?list.map(p=>{
-    const ups=upToPill(p,'dues')+upToPill(p,'tax');
+    const ups=upToPill(p,'dues')+upToPill(p,'tax')+upToPill(p,'ins');
     let h='<div class="card stack" data-pid="'+p.id+'"><div class="row spread"><div class="propname">'+propIcon(p)+'<div><h2>'+esc(p.name)+'</h2><span class="small muted">'+esc([p.area,p.rented?'Rented out':'Not rented'].filter(Boolean).join(' · '))+'</span></div></div>'
       +'<div class="row"><button type="button" class="btn link" data-pedit>Edit</button><button type="button" class="btn link" data-pdel>Delete</button></div></div>'
       +(ups?'<div class="row">'+ups+'</div>':'');
@@ -1232,7 +1232,7 @@ function renderProps(force){
         +MONTHS.map((mn,i)=>{const mm=y+'-'+pad(i+1),st=rentState(p,mm),r=(p.rentPaid||{})[mm];
           return '<button type="button" class="chip '+st+'" data-rent="'+mm+'"'+(st==='off'?' disabled':'')+' title="'+(r?'Paid '+longDate(r.on):st==='late'?'Not paid, past due':'')+'"><strong>'+mn.slice(0,3)+'</strong>'+(st==='paid'?'Paid':st==='late'?'Unpaid':st==='due'?'Due':st==='future'?'–':'')+'</button>'}).join('')+'</div>';
     }
-    h+=payBlock(p,'dues')+payBlock(p,'tax')+payBlock(p,'other');
+    h+=payBlock(p,'dues')+payBlock(p,'tax')+payBlock(p,'ins')+payBlock(p,'other');
     if(p.notes)h+='<p class="small muted" style="margin:0">'+esc(p.notes)+'</p>';
     return h+'</div>';
   }).join(''):'<div class="card empty">No '+(isRent?'rented':'own-use')+' properties yet. Tap <strong>'+(isRent?'Add a rented property':'Add an own-use property')+'</strong> to start.</div>';
@@ -1528,6 +1528,7 @@ function upcoming(){
   S.policies.filter(p=>p.kind==='paying'&&p.paidUntil).forEach(p=>{const end=ymd(new Date(+p.paidUntil.slice(0,4),+p.paidUntil.slice(5),0)),n=days(end);if(n<=ALERT_DAYS)out.push({n,d:end,what:'Life insurance premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
   /* yearly premiums with no 'paid up to' (e.g. BDO Life charged to the card each year): next policy anniversary */
   S.policies.filter(p=>p.kind==='paying'&&!p.paidUntil&&p.start&&!(+p.monthly)&&(+p.annual)).forEach(p=>{const d=nextAnniv(p.start),n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what:'Life insurance yearly premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
+  S.props.forEach(p=>{const to=paidUpTo(p,'ins');if(to){const n=days(to);if(n<=ALERT_DAYS)out.push({n,d:to,what:'Fire insurance',who:p.name,go:p.rented?'rented':'own'})}});
   return out.sort((a,b)=>a.n-b.n);
 }
 function nextAnniv(start){const t=today();let y=+t.slice(0,4),d=y+start.slice(4);if(d<t)d=(y+1)+start.slice(4);return d}
