@@ -1281,7 +1281,7 @@ function renderLog(items){
   const body=$('#logBody');
   if(!S.loaded){body.innerHTML='<tr><td colspan="8" class="empty">Opening your saved expenses…</td></tr>';return}
   const t=S.fltText.trim().toLowerCase();
-  const rows=items.map((x,i)=>({x,n:i+1})).filter(({x})=>(!S.fltAcct||x.acct===S.fltAcct)&&(!t||x.desc.toLowerCase().includes(t)||(x.notes||'').toLowerCase().includes(t)));
+  const rows=items.map((x,i)=>({x,n:i+1})).filter(({x})=>(!S.fltAcct||x.acct===S.fltAcct)&&(!t||x.desc.toLowerCase().includes(t)||(x.notes||'').toLowerCase().includes(t))).reverse(); /* newest day first */
   if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty">'+(items.length?'No items match this search or account.':'Nothing logged for '+monthName(S.month)+' yet. Add the first item above.')+'</td></tr>';return}
   const filtered=rows.length!==items.length;
   body.innerHTML=rows.map(({x,n})=>{const c=CAT[x.cat];return '<tr><td class="num muted">'+pad(n)+'</td><td style="white-space:nowrap">'+dayShort(x.date)+'</td><td>'+esc(c?c.name:'Uncategorised')+'<span class="catsub">'+esc(c?c.group.name:'')+'</span></td><td>'+esc(x.desc)+'</td><td class="num r">'+fmt(x.amt)+'</td><td>'+esc(x.acct)+'</td><td class="small muted">'+esc(x.notes||'')+byTag(x)+'</td><td style="white-space:nowrap">'+((x.rp?'<button class="btn link" data-rcpt="'+esc(x.rp)+'">Receipt</button>':'')+'<button class="btn link" data-edit="'+x.id+'">Edit</button><button class="btn link" data-del="'+x.id+'">Delete</button>')+'</td></tr>'}).join('')
