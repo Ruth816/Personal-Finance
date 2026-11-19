@@ -376,6 +376,7 @@ body.theme-cute.tone-blue{
 }
 }
 .track-t input.incnote{width:220px;min-width:160px;text-align:left;font-family:var(--body)}
+.toast.verbar{top:16px;bottom:auto;z-index:40}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -402,7 +403,7 @@ body.theme-cute.tone-blue{
   <header class="head">
     <div class="brand">
       <div class="row" style="gap:10px;flex-wrap:nowrap"><button type="button" class="menubtn" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="side"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="pageTitle">Dashboard</h1></div>
-      <div class="status" id="status"><span class="dot"></span><span id="statusText">Opening your saved expenses…</span><button type="button" class="signout" id="signOut" hidden>Sign out</button></div>
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">Opening your saved expenses…</span><button type="button" class="signout" id="reloadBtn" title="Load the latest version of the app">↻ Reload</button><button type="button" class="signout" id="signOut" hidden>Sign out</button></div>
     </div>
     <div class="monthbox">
       <div class="stepper">
@@ -1870,6 +1871,24 @@ window.addEventListener('hashchange',fromHash);
 $('#fCat').innerHTML=optsCat('');$('#fAcct').innerHTML=optsAcct('','Choose an account');$('#fltAcct').innerHTML=optsAcct('','All accounts');
 $('#fDate').value=today();setDayHint();
 const h0=location.hash.slice(1)==='properties'?'rented':location.hash.slice(1);if(VIEWS.includes(h0))S.view=h0;
+/* ---------- new version notice: compares this page's own code with what the site serves now ---------- */
+const codeOf=doc=>{const st=doc.querySelector('head style'),sc=[...doc.querySelectorAll('script:not([src])')].sort((a,b)=>b.textContent.length-a.textContent.length)[0];return (st?st.textContent:'')+'\n'+(sc?sc.textContent:'')};
+const MY_CODE=codeOf(document);let verShown=false;
+async function checkVersion(){
+  if(verShown||!/^https?:$/.test(location.protocol))return;
+  try{
+    const r=await fetch('/?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const now=codeOf(new DOMParser().parseFromString(await r.text(),'text/html'));
+    if(now.length>1000&&now!==MY_CODE){
+      verShown=true;const d=document.createElement('div');d.className='toast verbar';d.setAttribute('role','status');
+      d.innerHTML='<span>A new version of the app is ready.</span><button type="button">Reload</button>';
+      d.querySelector('button').addEventListener('click',()=>location.reload());document.body.appendChild(d);
+    }
+  }catch(e){}
+}
+setTimeout(checkVersion,3000);setInterval(checkVersion,10*60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});
+$('#reloadBtn').addEventListener('click',()=>location.reload());
 render();initStore();
 </script>
 </body>
