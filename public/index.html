@@ -393,6 +393,12 @@ body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body
 .vgroup{display:flex;align-items:baseline;gap:12px;padding:6px 4px 0}.vgroup h2{font-size:22px}.vgroup .small{background:rgba(255,255,255,.85);border-radius:999px;padding:2px 10px;font-weight:700}
 .upq{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.upq .btn{font-size:13.5px;padding:7px 12px}
 body.member .upq{display:none}
+.ind.due.soon{background:#FFE7A3;color:#7A4B00}
+.ind.due.soon::before{content:"⏰ "}
+.alertcard::before{background:#FFB547!important}
+.alertrow{display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1.5px dashed var(--rule);text-decoration:none;color:inherit;flex-wrap:wrap}
+.alertrow:last-child{border-bottom:0}
+.alertrow:hover strong{text-decoration:underline}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -468,6 +474,7 @@ body.member .upq{display:none}
       <button type="button" class="btn" data-act="report">Monthly report (PDF)</button>
     </div>
     <div class="dash-grid">
+      <div class="card stack span2 alertcard" id="dashAlerts" hidden><div class="row spread"><h2>⏰ Coming up in the next 60 days</h2><span class="small" id="dashAlertsN"></span></div><div id="dashAlertsList"></div></div>
       <div class="card stack"><div class="row spread"><h2 id="dashGrpTitle">Spending by group</h2><a href="#budget" data-go="budget" class="small">Budget tracking</a></div><div id="dashGroups"></div></div>
       <div class="card stack"><h2>Last 6 months</h2><div id="dashMonths"></div></div>
       <div class="card stack span2"><div class="row spread"><h2>Latest items</h2><a href="#log" data-go="log" class="small">See the whole log</a></div>
@@ -1050,7 +1057,7 @@ function render(){
   if(ic.previousElementSibling!==anchor)anchor.after(ic);
   $('#rcptLocal').hidden=store.mode==='cloud';
   ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome,loans:renderLoans,insurance:renderInsurance,vehicles:renderVehicles})[S.view](items);
-  if(S.view==='dashboard'){renderDashIns();renderDashVeh()}
+  if(S.view==='dashboard'){renderDashIns();renderDashVeh();renderAlerts()}
   insBadge();vehBadge();
   renderProps();
   if(S.view==='log')renderRefunds();
@@ -1428,9 +1435,11 @@ function dueChip(d,label){
   const days=Math.round((toDate(d)-toDate(today()))/864e5);
   if(days<0)return '<span class="ind due no">'+label+' expired '+dShort(d)+'</span>';
   if(days<=30)return '<span class="ind due no">'+label+' due '+dShort(d)+' · '+days+' days</span>';
+  if(days<=ALERT_DAYS)return '<span class="ind due soon">'+label+' due '+dShort(d)+' · '+days+' days</span>';
   return '<span class="ind due ok">'+label+(/Maint|Service/.test(label)?' due ':' to ')+dShort(d)+'</span>';
 }
-const vehAlerts=v=>[v.regExp,v.insExp,v.tplExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=30).length;
+const ALERT_DAYS=60;
+const vehAlerts=v=>[v.regExp,v.insExp,v.tplExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=ALERT_DAYS).length;
 function vehBadge(){const n=S.vehicles.reduce((t,v)=>t+vehAlerts(v),0),b=$('#navVehN');b.hidden=!n;b.textContent=n}
 function vehLoanCell(v){
   if(v.status!=='loan')return '<span class="ind ok">Fully paid</span>';
@@ -1441,7 +1450,7 @@ function vehTotals(){const cars=S.vehicles.filter(v=>v.kind!=='equipment'),onLoa
 function renderVehicles(){
   const blocked=store.mode==='cloud'&&!store.vehicles;$('#vehSetup').hidden=!blocked||!S.loaded;$('#vehAddBtn').disabled=blocked;
   const t=vehTotals();
-  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]]
+  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 60 days',String(t.due)]]
     .map(([k,v],i)=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+(i===4&&t.due?' neg':'')+'">'+v+'</span></div>').join('');
   const vehCard=v=>{
     const eq=v.kind==='equipment';
@@ -1498,10 +1507,23 @@ async function uploadVehFile(v,r,file){
 async function attachVehFile(v,r,file){toast('Uploading…');try{await uploadVehFile(v,r,file);render();toast('File saved.')}catch(err){render();alert(proofError(err))}}
 const vehFileIn=document.createElement('input');vehFileIn.type='file';vehFileIn.accept='image/*,application/pdf';vehFileIn.hidden=true;document.body.appendChild(vehFileIn);
 vehFileIn.addEventListener('change',()=>{const f=vehFileIn.files[0],t=S.vrecUp;vehFileIn.value='';S.vrecUp=null;if(!f||!t)return;const v=S.vehicles.find(x=>x.id===t.vid),r=v&&vrecs(v).find(x=>x.id===t.id);if(r)attachVehFile(v,r,f)});
+/* one list of everything expiring or due within 60 days: car registration, comprehensive insurance, CTPL, service, equipment warranty/maintenance, and life insurance premiums */
+function upcoming(){
+  const td=today(),out=[],days=d=>Math.round((toDate(d)-toDate(td))/864e5);
+  S.vehicles.forEach(v=>{const eq=v.kind==='equipment';
+    [[v.regExp,'Registration'],[v.insExp,eq?'Warranty':'Comprehensive insurance'],[v.tplExp,'CTPL insurance'],[v.pms,eq?'Maintenance':'Service (PMS)']].forEach(([d,what])=>{if(d&&!(eq&&what==='Registration')){const n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what,who:v.name+(v.plate?' · '+v.plate:''),go:'vehicles'})}})});
+  S.policies.filter(p=>p.kind==='paying'&&p.paidUntil).forEach(p=>{const end=ymd(new Date(+p.paidUntil.slice(0,4),+p.paidUntil.slice(5),0)),n=days(end);if(n<=ALERT_DAYS)out.push({n,d:end,what:'Life insurance premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
+  return out.sort((a,b)=>a.n-b.n);
+}
+function renderAlerts(){
+  const list=upcoming(),card=$('#dashAlerts');card.hidden=!list.length;if(!list.length)return;
+  $('#dashAlertsN').textContent=list.length+(list.length===1?' item':' items');
+  $('#dashAlertsList').innerHTML=list.map(x=>'<a class="alertrow" href="#'+x.go+'" data-go="'+x.go+'"><span class="ind due '+(x.n<=30?'no':'soon')+'">'+(x.n<0?'Expired '+(-x.n)+' days ago':x.n===0?'Today':'In '+x.n+' days')+'</span><span><strong>'+esc(x.what)+'</strong><span class="small"> · '+esc(x.who)+'</span></span><span class="small" style="margin-left:auto;white-space:nowrap">'+dShort(x.d)+'</span></a>').join('');
+}
 function renderDashVeh(){
   const card=$('#dashVeh');card.hidden=!S.vehicles.length;if(!S.vehicles.length)return;
   const t=vehTotals();
-  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
+  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 60 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
   $('#dashVehBody').innerHTML=S.vehicles.slice().sort((a,b)=>(a.kind==='equipment'?1:0)-(b.kind==='equipment'?1:0)||String(a.name).localeCompare(b.name)).map((v,i,arr)=>(i===0||(arr[i-1].kind==='equipment')!==(v.kind==='equipment')?'<tr class="group"><td colspan="5"><strong>'+(v.kind==='equipment'?'Equipment':'Vehicles')+'</strong></td></tr>':'')+'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+(v.kind!=='equipment'&&v.tplExp?'<div style="margin-top:4px">'+dueChip(v.tplExp,'CTPL')+'</div>':'')+'</td></tr>').join('');
 }
 const VLAB={vehicle:{vhNameL:'Vehicle',vhOwnerL:'Registered to',vhUserL:'Used by',vhBoughtL:'Date bought',vhInsurerL:'Car insurance with',vhInsExpL:'Comprehensive insurance expires',vhPmsL:'Next service (PMS)'},
@@ -1575,7 +1597,7 @@ const insPrem=p=>+p.monthly?'<span class="num">'+fmt(+p.monthly)+'</span><div cl
 const insPolicy=p=>'<strong>'+esc(p.insurer)+'</strong><div class="small">'+esc(p.plan)+(p.policyNo?' · '+esc(p.policyNo):'')+'</div>';
 /* status of a policy still being paid: overdue when "paid up to" is before this month, due soon when it is this or next month */
 function insState(p){
-  const cur=today().slice(0,7),nx=(()=>{const [y,m]=cur.split('-').map(Number);return m===12?(y+1)+'-01':y+'-'+pad(m+1)})();
+  const cur=today().slice(0,7),nx=addMonths(cur+'-01',2).slice(0,7);
   if(p.paidUntil){if(p.paidUntil<cur)return '<span class="ind no">Overdue since '+ymShort(p.paidUntil)+'</span>';if(p.paidUntil<=nx)return '<span class="ind no">Due soon · paid to '+ymShort(p.paidUntil)+'</span>';return '<span class="ind ok">Paid to '+ymShort(p.paidUntil)+'</span>'}
   return '<span class="ind na">'+(/auto/i.test(p.payMode||'')?'Auto-charged':'Active')+(p.ends?' · ends '+esc(p.ends):'')+'</span>';
 }
