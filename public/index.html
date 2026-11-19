@@ -1136,9 +1136,9 @@ $('#propList').addEventListener('submit',e=>{
 /* ---------- income & expense tracking (private page) ----------
    Typed income is kept with the budgets: 'inc:<row>' = monthly projection, 'inc:<row>:<YYYY-MM>' = actual for that month.
    Property income comes from Rented properties; expenses come from Budget tracking and the Expenses log. */
-const INC=[['salary','Salary'],['property','Property (rent)'],['interest','Interest received'],['others','Others']];
+const INC=[['salary','Salary'],['property','Property (rent)'],['interest','Interest received'],['stocks','Income from stocks'],['others','Others']];
 /* interest sources: every = months between payouts; payout months are set with 'inc:<id>:m' (first payout month, 1–12) */
-const INT=[{id:'int-bpi',name:'Time deposit – BPI',every:3,m:3},{id:'int-bdo',name:'Time deposit – BDO',every:3,m:3},{id:'int-pru',name:'Pru Life',every:12,m:12},{id:'int-insular',name:'Insular Life via UnionBank',every:1,m:1}];
+const INT=[{id:'int-bpi',name:'BPI time deposit – PHP',every:3,m:3},{id:'int-usd',name:'BPI time deposit – USD',every:3,m:3},{id:'int-bdo',name:'Time deposit – BDO',every:3,m:3},{id:'int-pru',name:'Pru Life',every:12,m:12},{id:'int-insular',name:'Insular Life via UnionBank',every:1,m:1}];
 const MSHORT=MONTHS.map(x=>x.slice(0,3));
 const payMonths=(s,B)=>{const a=+B['inc:'+s.id+':m']||s.m;return MSHORT.filter((_,i)=>((i+1-a)%s.every+s.every)%s.every===0)};
 function renderIncome(items){
