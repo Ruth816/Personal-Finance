@@ -394,6 +394,7 @@ body.theme-cute.tone-blue{
     <a href="#rented" data-go="rented"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M2.5 21h19"/><path d="M8 8h3M8 12h3M8 16h3"/></svg><span>Rented properties</span><span class="badge" id="navRentN" hidden></span></a>
     <a href="#own" data-go="own"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg><span>Own-use properties</span><span class="badge" id="navOwnN" hidden></span></a>
     <a href="#income" data-go="income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M12 15v2"/></svg><span>Income &amp; expenses</span></a>
+    <a href="#loans" data-go="loans"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M15.2 4.6a5.5 5.5 0 1 1-4.7 13.9"/><path d="M9 6.5v5M7.2 8h3"/></svg><span>Loans</span></a>
   </nav>
   <div class="side-foot">rlw-app.com</div>
 </aside>
@@ -488,6 +489,30 @@ body.theme-cute.tone-blue{
     <div class="card stack">
       <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Budget = Budget tracking · Actual = Expenses log</span></div>
       <div class="scroll"><table class="track-t"><thead><tr><th>Expenses</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th>Indicator</th></tr></thead><tbody id="expBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- LOANS (money lent to friends & household; never part of spending) -->
+  <section id="v-loans" class="stack" hidden>
+    <div class="tiles" id="loanTiles"></div>
+    <div class="card stack">
+      <div class="row spread"><h2>Loans to friends &amp; household</h2><button type="button" class="btn primary" id="loanAddBtn">Add a loan</button></div>
+      <p class="small muted" style="margin:0">Money you lend is kept here, not in your expenses, so it never counts as spending. Add repayments as they come in.</p>
+      <div class="banner" id="loanSetup" hidden>To save loans to your account, run <strong>supabase/loans.sql</strong> once in Supabase (SQL Editor → New query → paste → Run), then reload.</div>
+      <form class="form payform" id="loanForm" hidden autocomplete="off">
+        <div class="f c4"><label for="lnWho">Borrower</label><input type="text" id="lnWho" maxlength="80" placeholder="e.g. Michelle (helper)"></div>
+        <div class="f c4"><label for="lnDate">Date lent</label><input type="date" id="lnDate" required></div>
+        <div class="f c4"><label for="lnAmt">Amount (₱)</label><input type="number" id="lnAmt" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div class="f c4"><label for="lnAcct">Paid from</label><select id="lnAcct"></select></div>
+        <div class="f c4"><label for="lnDue">Due date (optional)</label><input type="date" id="lnDue"></div>
+        <div class="f c4"><label for="lnNotes">Notes</label><input type="text" id="lnNotes" maxlength="200" placeholder="e.g. salary deduction ₱1,000 a month"></div>
+        <div class="row c12"><button type="submit" class="btn primary" id="lnSave">Add loan</button><button type="button" class="btn" id="lnCancel">Cancel</button><span class="msg" id="lnMsg" role="status"></span></div>
+      </form>
+    </div>
+    <div class="card stack"><h2>Who owes you</h2><div class="scroll"><table><thead><tr><th>Borrower</th><th class="r">Lent</th><th class="r">Repaid</th><th class="r">Still owed</th></tr></thead><tbody id="loanPeople"></tbody></table></div></div>
+    <div class="card stack">
+      <div class="row spread"><h2>All loans</h2><label class="small"><input type="checkbox" id="loanAllChk"> Show fully repaid loans</label></div>
+      <div class="scroll"><table><thead><tr><th>Date</th><th>Borrower</th><th class="r">Lent</th><th class="r">Repaid</th><th class="r">Balance</th><th>Account</th><th>Status</th><th></th></tr></thead><tbody id="loanBody"></tbody></table></div>
     </div>
   </section>
 
@@ -761,7 +786,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{}};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{},loans:[],loanAll:false,loanEdit:null,loanPayFor:null};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -774,13 +799,13 @@ const byTag=x=>x.by&&x.by!==uid()&&store.names[x.by]?' <span class="bytag">added
 function setStatus(kind,text){const el=$('#status');el.className='status '+kind;$('#statusText').textContent=text;$('#signOut').hidden=store.mode!=='cloud'}
 function useLocal(text){
   store.mode='local';
-  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[];S.notes=d.notes||{}}}catch(e){store.mode='memory'}
+  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[];S.notes=d.notes||{};S.loans=d.loans||[]}}catch(e){store.mode='memory'}
   S.loaded=true;document.body.classList.remove('locked');
   cleanUp().catch(()=>{});
   setStatus('local',store.mode==='local'?(text||'Saved in this browser only, not synced to your other devices'):'Not saving: this view cannot store data');
   render();
 }
-function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds,notes:S.notes}))}catch(e){setStatus('bad','Could not save in this browser')}}}
+function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds,notes:S.notes,loans:S.loans}))}catch(e){setStatus('bad','Could not save in this browser')}}}
 /* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
 const toRow=x=>Object.assign({id:x.id,user_id:uid(),date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
 const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{},r.added_by?{by:r.added_by}:{});
@@ -817,7 +842,7 @@ const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(t
 const dbBudget=(cat,v)=>store.member&&!String(cat).startsWith('inc:')?undefined:persist(()=>v>0?store.sb.from('budgets').upsert({user_id:uid(),cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];S.notes={};
+  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];S.notes={};S.loans=[];
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
@@ -832,6 +857,7 @@ async function startCloud(session){
   await loadProps().catch(e=>console.error('properties',e));
   await loadRefunds().catch(e=>console.error('refunds',e));
   await loadNotes().catch(e=>console.error('notes',e));
+  await loadLoans().catch(e=>console.error('loans',e));
   if(!store.member)cleanUp().catch(e=>console.error('clean-up',e));
 }
 /* short text notes (supabase/notes.sql): key → note; store.notes is false until that script has been run */
@@ -895,10 +921,10 @@ function memory(){
 /* ---------- shared render ---------- */
 function optsCat(sel){return '<option value="">Choose a category</option>'+GROUPS.map(g=>'<optgroup label="'+esc(g.name)+'">'+g.cats.map(([id,n])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(n)+'</option>').join('')+'</optgroup>').join('')}
 function optsAcct(sel,first){return '<option value="">'+first+'</option>'+ACCOUNTS.map(a=>'<option'+(a===sel?' selected':'')+'>'+esc(a)+'</option>').join('')}
-const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income'];
-const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties','income'];
+const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income','loans'];
+const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties','income','loans'];
 const secOf=v=>v==='rented'||v==='own'?'properties':v;
-const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses'};
+const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses',loans:'Loans'};
 function render(){
   $('#monthLabel').textContent=monthName(S.month);
   const items=itemsOf(S.month);
@@ -911,7 +937,7 @@ function render(){
   const ic=$('#importCard'),anchor=S.view==='receipts'?$('#inboxCard'):$('#v-log').firstElementChild;
   if(ic.previousElementSibling!==anchor)anchor.after(ic);
   $('#rcptLocal').hidden=store.mode==='cloud';
-  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome})[S.view](items);
+  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome,loans:renderLoans})[S.view](items);
   renderProps();
   if(S.view==='log')renderRefunds();
   if(store.member)document.querySelectorAll('#budgetBody input').forEach(i=>i.readOnly=true);
@@ -1233,6 +1259,67 @@ $('#propImpIn').addEventListener('change',async e=>{
     S.props.push(p);saveProp(p);
   }
   renderProps(true);toast('Added '+add.length+' properties.');
+});
+
+/* ---------- loans to friends & household (own table, supabase/loans.sql; never part of spending totals) ---------- */
+const loanPaid=l=>(l.pays||[]).reduce((t,p)=>t+(+p.amt||0),0);
+const loanBal=l=>Math.round((l.amt-loanPaid(l))*100)/100;
+async function loadLoans(){
+  if(store.mode!=='cloud')return;
+  const {data,error}=await store.sb.from('loans').select('id,data').order('updated_at');
+  store.loans=!error;S.loans=error?[]:data.map(r=>({...r.data,id:r.id}));
+  if(S.view==='loans')render();
+}
+function saveLoan(l){
+  if(store.mode==='cloud'){if(!store.loans)return;const {id,...data}=l;persist(()=>store.sb.from('loans').upsert({id,user_id:uid(),data,updated_at:new Date().toISOString()}))}
+  else saveLocal();
+}
+function dropLoan(id){S.loans=S.loans.filter(l=>l.id!==id);if(store.mode==='cloud'){if(store.loans)persist(()=>store.sb.from('loans').delete().eq('id',id))}else saveLocal()}
+function renderLoans(){
+  const blocked=store.mode==='cloud'&&!store.loans;$('#loanSetup').hidden=!blocked||!S.loaded;$('#loanAddBtn').disabled=blocked;
+  const all=S.loans.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0),td=today();
+  const lent=all.reduce((t,l)=>t+l.amt,0),paid=all.reduce((t,l)=>t+loanPaid(l),0),open=all.filter(l=>loanBal(l)>0);
+  $('#loanTiles').innerHTML=[['Lent (all loans)',fmt(lent)],['Repaid to you',fmt(paid)],['Still owed to you',fmt(Math.max(lent-paid,0))],['Open loans',String(open.length)]]
+    .map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
+  const by={};all.forEach(l=>{const k=(l.borrower||'').trim();const o=by[k.toLowerCase()]||(by[k.toLowerCase()]={n:k,lent:0,paid:0});o.lent+=l.amt;o.paid+=loanPaid(l)});
+  const people=Object.values(by).filter(o=>S.loanAll||o.lent-o.paid>0.004).sort((a,b)=>(b.lent-b.paid)-(a.lent-a.paid));
+  $('#loanPeople').innerHTML=people.length?people.map(o=>'<tr><td>'+esc(o.n)+'</td><td class="num r">'+fmt(o.lent)+'</td><td class="num r good-t">'+fmt(o.paid)+'</td><td class="num r"><strong>'+fmt(Math.max(o.lent-o.paid,0))+'</strong></td></tr>').join('')
+    :'<tr><td colspan="4" class="empty">Nobody owes you money right now.</td></tr>';
+  const list=all.filter(l=>S.loanAll||loanBal(l)>0);
+  $('#loanBody').innerHTML=list.length?list.map(l=>{
+    const b=loanBal(l),st=b<=0?'<span class="ind ok">Repaid</span>':l.due&&l.due<td?'<span class="ind no">Overdue</span>':'<span class="ind na">Open</span>';
+    const pays=(l.pays||[]).slice().sort((a,c)=>a.date<c.date?-1:1).map(p=>'<div class="small good-t">Repaid '+fmt(p.amt)+' on '+dayShort(p.date)+' '+p.date.slice(0,4)+(p.acct?' · '+esc(p.acct):'')+(p.notes?' · '+esc(p.notes):'')+' <button type="button" class="btn link" data-lpdel="'+l.id+'|'+p.id+'">Remove</button></div>').join('');
+    const form=S.loanPayFor===l.id?'<tr><td colspan="8"><form class="form payform" data-lpay="'+l.id+'" autocomplete="off"><div class="f c3"><label>Date repaid</label><input type="date" name="d" value="'+td+'" required></div><div class="f c3"><label>Amount (₱)</label><input type="number" name="a" min="0" step="0.01" inputmode="decimal" value="'+(b>0?b:'')+'" required></div><div class="f c3"><label>Received in</label><select name="c">'+optsAcct(l.acct||'','Choose an account')+'</select></div><div class="f c3"><label>Notes</label><input type="text" name="n" maxlength="120"></div><div class="row c12"><button type="submit" class="btn primary">Save repayment</button><button type="button" class="btn" data-lpcancel="1">Cancel</button></div></form></td></tr>':'';
+    return '<tr><td style="white-space:nowrap">'+dayShort(l.date)+'<div class="small muted">'+l.date.slice(0,4)+'</div></td><td><strong>'+esc(l.borrower)+'</strong>'+(l.notes?'<div class="small muted">'+esc(l.notes)+'</div>':'')+pays+byTag(l)+'</td><td class="num r">'+fmt(l.amt)+'</td><td class="num r good-t">'+fmt(loanPaid(l))+'</td><td class="num r"><strong>'+fmt(Math.max(b,0))+'</strong></td><td>'+esc(l.acct||'')+(l.due?'<div class="small muted">Due '+dayShort(l.due)+' '+l.due.slice(0,4)+'</div>':'')+'</td><td>'+st+'</td><td style="white-space:nowrap">'+(b>0?'<button type="button" class="btn link" data-lpadd="'+l.id+'">Add repayment</button>':'')+'<button type="button" class="btn link" data-ledit="'+l.id+'">Edit</button><button type="button" class="btn link" data-ldel="'+l.id+'">Delete</button></td></tr>'+form}).join('')
+    :'<tr><td colspan="8" class="empty">'+(S.loans.length?'All loans are fully repaid. Tick "Show fully repaid loans" to see them.':'No loans yet. Tap Add a loan.')+'</td></tr>';
+  $('#loanAllChk').checked=!!S.loanAll;
+}
+function openLoan(l){S.loanEdit=l?l.id:null;$('#lnDate').value=l?l.date:today();$('#lnWho').value=l?l.borrower:'';$('#lnAmt').value=l?l.amt:'';$('#lnAcct').innerHTML=optsAcct(l?l.acct||'':'','Choose an account');$('#lnDue').value=l?l.due||'':'';$('#lnNotes').value=l?l.notes||'':'';$('#lnSave').textContent=l?'Save changes':'Add loan';$('#lnMsg').textContent='';$('#loanForm').hidden=false;$('#lnWho').focus()}
+$('#loanAddBtn').addEventListener('click',()=>openLoan(null));
+$('#lnCancel').addEventListener('click',()=>{$('#loanForm').hidden=true;S.loanEdit=null});
+$('#loanForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const who=$('#lnWho').value.trim(),amt=Math.round((parseFloat($('#lnAmt').value)||0)*100)/100,date=$('#lnDate').value;
+  if(!who||!date||!(amt>0)){$('#lnMsg').textContent='Fill in the borrower, the date and an amount.';return}
+  const old=S.loanEdit&&S.loans.find(l=>l.id===S.loanEdit);
+  const l=Object.assign(old||{id:newId(),pays:[],by:store.user?store.user.id:''},{borrower:who.slice(0,80),date,amt,acct:$('#lnAcct').value,due:$('#lnDue').value||'',notes:$('#lnNotes').value.trim().slice(0,200)});
+  if(!old)S.loans.push(l);saveLoan(l);$('#loanForm').hidden=true;S.loanEdit=null;render();toast(old?'Loan updated.':'Loan added.');
+});
+$('#loanAllChk').addEventListener('change',e=>{S.loanAll=e.target.checked;render()});
+$('#loanBody').addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.lpadd){S.loanPayFor=t.dataset.lpadd;render();return}
+  if(t.dataset.lpcancel){S.loanPayFor=null;render();return}
+  if(t.dataset.ledit){const l=S.loans.find(x=>x.id===t.dataset.ledit);if(l){openLoan(l);$('#loanForm').scrollIntoView({block:'center'})}return}
+  if(t.dataset.ldel){const l=S.loans.find(x=>x.id===t.dataset.ldel);if(l&&confirm('Delete the loan to '+l.borrower+' ('+fmt(l.amt)+') and its repayments?')){dropLoan(l.id);render()}return}
+  if(t.dataset.lpdel){const [lid,pid]=t.dataset.lpdel.split('|');const l=S.loans.find(x=>x.id===lid);if(l&&confirm('Remove this repayment?')){l.pays=(l.pays||[]).filter(p=>p.id!==pid);saveLoan(l);render()}return}
+});
+$('#loanBody').addEventListener('submit',e=>{
+  const f=e.target.closest('[data-lpay]');if(!f)return;e.preventDefault();
+  const l=S.loans.find(x=>x.id===f.dataset.lpay);if(!l)return;
+  const amt=Math.round((parseFloat(f.elements.a.value)||0)*100)/100;if(!(amt>0)||!f.elements.d.value)return;
+  (l.pays=l.pays||[]).push({id:newId(),date:f.elements.d.value,amt,acct:f.elements.c.value,notes:f.elements.n.value.trim().slice(0,120)});
+  S.loanPayFor=null;saveLoan(l);render();toast('Repayment saved.');
 });
 
 /* ---------- refunds & cash back (own table; never part of spending totals) ---------- */
