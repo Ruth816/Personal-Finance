@@ -377,8 +377,9 @@ body.theme-cute.tone-blue{
 }
 .track-t input.incnote{width:220px;min-width:160px;text-align:left;font-family:var(--body)}
 .toast.verbar{top:16px;bottom:auto;z-index:40}
-body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.member [data-agentedit]{display:none!important}
+body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body.member [data-vrup],body.member #vehAddBtn,body.member [data-vedit],body.member [data-vdel],body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.member [data-agentedit]{display:none!important}
 .agent{padding:8px 0;border-bottom:1.5px dashed var(--rule)}.agent:last-child{border-bottom:0}
+#vehForm.equip .vonly{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -398,6 +399,7 @@ body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.mem
     <a href="#income" data-go="income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M12 15v2"/></svg><span>Income &amp; expenses</span></a>
     <a href="#loans" data-go="loans"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M15.2 4.6a5.5 5.5 0 1 1-4.7 13.9"/><path d="M9 6.5v5M7.2 8h3"/></svg><span>Loans</span></a>
     <a href="#insurance" data-go="insurance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.4"/></svg><span>Insurance</span><span class="badge" id="navInsN" hidden></span></a>
+    <a href="#vehicles" data-go="vehicles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16v-4.5l2-5A1.5 1.5 0 0 1 7.4 5.5h9.2A1.5 1.5 0 0 1 18 6.5l2 5V16"/><path d="M3 16h18v2.5a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1V18h-11v.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M4 11.5h16M7 14.2h1.5M15.5 14.2H17"/></svg><span>Vehicles &amp; equipment</span><span class="badge" id="navVehN" hidden></span></a>
   </nav>
   <div class="side-foot">rlw-app.com</div>
 </aside>
@@ -460,6 +462,9 @@ body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.mem
       <div class="card stack span2" id="dashIns" hidden><div class="row spread"><h2>Insurance policies</h2><a href="#insurance" data-go="insurance" class="small">All policies</a></div>
         <div class="tiles" id="dashInsTiles"></div>
         <div class="scroll"><table><thead><tr><th>Insured</th><th>Policy</th><th class="r">Premium</th><th>Paid by</th><th>Status</th></tr></thead><tbody id="dashInsBody"></tbody></table></div></div>
+      <div class="card stack span2" id="dashVeh" hidden><div class="row spread"><h2>Vehicles &amp; equipment</h2><a href="#vehicles" data-go="vehicles" class="small">See all</a></div>
+        <div class="tiles" id="dashVehTiles"></div>
+        <div class="scroll"><table><thead><tr><th>Item</th><th>Used by / where</th><th>Loan</th><th>Registration</th><th>Insurance / warranty</th></tr></thead><tbody id="dashVehBody"></tbody></table></div></div>
     </div>
   </section>
 
@@ -539,6 +544,37 @@ body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.mem
       </form>
       <div class="scroll"><table><thead><tr><th>Loan</th><th class="r">Each payment</th><th class="r">Total payable</th><th class="r">Paid so far</th><th class="r">Still to pay</th><th>Next due</th><th>Account</th><th></th></tr></thead><tbody id="oweBody"></tbody></table></div>
     </div>
+  </section>
+
+  <!-- VEHICLES -->
+  <section id="v-vehicles" class="stack" hidden>
+    <div class="tiles" id="vehTiles"></div>
+    <div class="card stack">
+      <div class="row spread"><h2>Vehicles &amp; equipment</h2><button type="button" class="btn primary" id="vehAddBtn">Add a vehicle or equipment</button></div>
+      <p class="small muted" style="margin:0">Family cars (loan or fully paid, registration, insurance, service) and home equipment such as the solar panels (installed when, warranty, next maintenance). Each has a records log where you can upload receipts, OR/CR, policies and service reports.</p>
+      <div class="banner" id="vehSetup" hidden>To save vehicles to your account, run <strong>supabase/vehicles.sql</strong> once in Supabase (SQL Editor → New query → paste → Run), then reload.</div>
+      <form class="form payform" id="vehForm" hidden autocomplete="off">
+        <div class="f c4"><label for="vhKind">Type</label><select id="vhKind"><option value="vehicle">Vehicle</option><option value="equipment">Solar / home equipment</option></select></div>
+        <div class="f c4"><label for="vhName" id="vhNameL">Vehicle</label><input type="text" id="vhName" maxlength="60" placeholder="e.g. Mercedes GLC 2024"></div>
+        <div class="f c2"><label for="vhYear">Year</label><input type="number" id="vhYear" min="1950" max="2100" step="1" inputmode="numeric"></div>
+        <div class="f c3 vonly"><label for="vhPlate">Plate no.</label><input type="text" id="vhPlate" maxlength="12"></div>
+        <div class="f c3 vonly"><label for="vhColor">Colour</label><input type="text" id="vhColor" maxlength="30"></div>
+        <div class="f c4"><label for="vhOwner" id="vhOwnerL">Registered to</label><input type="text" id="vhOwner" maxlength="60"></div>
+        <div class="f c4"><label for="vhUser" id="vhUserL">Used by</label><input type="text" id="vhUser" maxlength="60" placeholder="e.g. Ruth, Justin, driver"></div>
+        <div class="f c4 vonly"><label for="vhStatus">Status</label><select id="vhStatus"><option value="loan">Still on a loan</option><option value="paid">Fully paid</option></select></div>
+        <div class="f c4 vonly"><label for="vhLoan">Loan (from Loans you're paying)</label><select id="vhLoan"></select></div>
+        <div class="f c4"><label for="vhPrice">Price (₱)</label><input type="number" id="vhPrice" min="0" step="0.01" inputmode="decimal"></div>
+        <div class="f c4"><label for="vhBought" id="vhBoughtL">Date bought</label><input type="date" id="vhBought"></div>
+        <div class="f c4 vonly"><label for="vhReg">Registration expires</label><input type="date" id="vhReg"></div>
+        <div class="f c4"><label for="vhInsurer" id="vhInsurerL">Car insurance with</label><input type="text" id="vhInsurer" maxlength="60"></div>
+        <div class="f c4"><label for="vhInsExp" id="vhInsExpL">Insurance expires</label><input type="date" id="vhInsExp"></div>
+        <div class="f c4"><label for="vhPms" id="vhPmsL">Next service (PMS)</label><input type="date" id="vhPms"></div>
+        <div class="f c4 vonly"><label for="vhOdo">Odometer (km)</label><input type="number" id="vhOdo" min="0" step="1" inputmode="numeric"></div>
+        <div class="f c4"><label for="vhNotes">Notes</label><input type="text" id="vhNotes" maxlength="200"></div>
+        <div class="row c12"><button type="submit" class="btn primary" id="vhSave">Add vehicle</button><button type="button" class="btn" id="vhCancel">Cancel</button><span class="msg" id="vhMsg" role="status"></span></div>
+      </form>
+    </div>
+    <div id="vehList" class="stack"></div>
   </section>
 
   <!-- INSURANCE POLICIES -->
@@ -846,7 +882,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{},loans:[],loanAll:false,loanEdit:null,loanPayFor:null,oweEdit:null,oweHist:null,policies:[],insEdit:null};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{},loans:[],loanAll:false,loanEdit:null,loanPayFor:null,oweEdit:null,oweHist:null,policies:[],insEdit:null,vehicles:[],vehEdit:null,vrecFor:null,vrecUp:null};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -859,13 +895,13 @@ const byTag=x=>x.by&&x.by!==uid()&&store.names[x.by]?' <span class="bytag">added
 function setStatus(kind,text){const el=$('#status');el.className='status '+kind;$('#statusText').textContent=text;$('#signOut').hidden=store.mode!=='cloud'}
 function useLocal(text){
   store.mode='local';
-  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[];S.notes=d.notes||{};S.loans=d.loans||[];S.policies=d.policies||[]}}catch(e){store.mode='memory'}
+  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[];S.notes=d.notes||{};S.loans=d.loans||[];S.policies=d.policies||[];S.vehicles=d.vehicles||[]}}catch(e){store.mode='memory'}
   S.loaded=true;document.body.classList.remove('locked');
   cleanUp().catch(()=>{});
   setStatus('local',store.mode==='local'?(text||'Saved in this browser only, not synced to your other devices'):'Not saving: this view cannot store data');
   render();
 }
-function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds,notes:S.notes,loans:S.loans,policies:S.policies}))}catch(e){setStatus('bad','Could not save in this browser')}}}
+function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds,notes:S.notes,loans:S.loans,policies:S.policies,vehicles:S.vehicles}))}catch(e){setStatus('bad','Could not save in this browser')}}}
 /* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
 const toRow=x=>Object.assign({id:x.id,user_id:uid(),date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
 const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{},r.added_by?{by:r.added_by}:{});
@@ -902,7 +938,7 @@ const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(t
 const dbBudget=(cat,v)=>store.member&&!String(cat).startsWith('inc:')?undefined:persist(()=>v>0?store.sb.from('budgets').upsert({user_id:uid(),cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];S.notes={};S.loans=[];S.policies=[];
+  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];S.notes={};S.loans=[];S.policies=[];S.vehicles=[];
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
@@ -919,6 +955,7 @@ async function startCloud(session){
   await loadNotes().catch(e=>console.error('notes',e));
   await loadLoans().catch(e=>console.error('loans',e));
   await loadPolicies().catch(e=>console.error('policies',e));
+  await loadVehicles().catch(e=>console.error('vehicles',e));
   if(!store.member)cleanUp().catch(e=>console.error('clean-up',e));
 }
 /* short text notes (supabase/notes.sql): key → note; store.notes is false until that script has been run */
@@ -982,10 +1019,10 @@ function memory(){
 /* ---------- shared render ---------- */
 function optsCat(sel){return '<option value="">Choose a category</option>'+GROUPS.map(g=>'<optgroup label="'+esc(g.name)+'">'+g.cats.map(([id,n])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(n)+'</option>').join('')+'</optgroup>').join('')}
 function optsAcct(sel,first){return '<option value="">'+first+'</option>'+ACCOUNTS.map(a=>'<option'+(a===sel?' selected':'')+'>'+esc(a)+'</option>').join('')}
-const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income','loans','insurance'];
-const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties','income','loans','insurance'];
+const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income','loans','insurance','vehicles'];
+const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties','income','loans','insurance','vehicles'];
 const secOf=v=>v==='rented'||v==='own'?'properties':v;
-const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses',loans:'Loans',insurance:'Insurance'};
+const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses',loans:'Loans',insurance:'Insurance',vehicles:'Vehicles & equipment'};
 function render(){
   $('#monthLabel').textContent=monthName(S.month);
   const items=itemsOf(S.month);
@@ -998,9 +1035,9 @@ function render(){
   const ic=$('#importCard'),anchor=S.view==='receipts'?$('#inboxCard'):$('#v-log').firstElementChild;
   if(ic.previousElementSibling!==anchor)anchor.after(ic);
   $('#rcptLocal').hidden=store.mode==='cloud';
-  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome,loans:renderLoans,insurance:renderInsurance})[S.view](items);
-  if(S.view==='dashboard')renderDashIns();
-  insBadge();
+  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome,loans:renderLoans,insurance:renderInsurance,vehicles:renderVehicles})[S.view](items);
+  if(S.view==='dashboard'){renderDashIns();renderDashVeh()}
+  insBadge();vehBadge();
   renderProps();
   if(S.view==='log')renderRefunds();
   if(store.member)document.querySelectorAll('#budgetBody input').forEach(i=>i.readOnly=true);
@@ -1355,6 +1392,147 @@ $('#propImpIn').addEventListener('change',async e=>{
     S.props.push(p);saveProp(p);
   }
   renderProps(true);toast('Added '+add.length+' properties.');
+});
+
+/* ---------- vehicles (own table, supabase/vehicles.sql; shared login can only view) ---------- */
+async function loadVehicles(){
+  if(store.mode!=='cloud')return;
+  const {data,error}=await store.sb.from('vehicles').select('id,data').order('updated_at');
+  store.vehicles=!error;S.vehicles=error?[]:data.map(r=>({...r.data,id:r.id}));
+  render();
+}
+function saveVehicle(v){
+  if(store.member)return;
+  if(store.mode==='cloud'){if(!store.vehicles)return;const {id,...data}=v;persist(()=>store.sb.from('vehicles').upsert({id,user_id:uid(),data,updated_at:new Date().toISOString()}))}
+  else saveLocal();
+}
+function dropVehicle(id){if(store.member)return;S.vehicles=S.vehicles.filter(v=>v.id!==id);if(store.mode==='cloud'){if(store.vehicles)persist(()=>store.sb.from('vehicles').delete().eq('id',id))}else saveLocal()}
+const vehLoan=v=>v.status==='loan'&&v.loan?S.loans.find(l=>l.dir==='owe'&&l.id===v.loan):null;
+/* expiry chip: red when past or within 30 days, amber-free "due soon" wording, green otherwise */
+function dueChip(d,label){
+  if(!d)return '<span class="small muted">–</span>';
+  const days=Math.round((toDate(d)-toDate(today()))/864e5);
+  if(days<0)return '<span class="ind no">'+label+' expired '+dShort(d)+'</span>';
+  if(days<=30)return '<span class="ind no">'+label+' due '+dShort(d)+' · '+days+' days</span>';
+  return '<span class="ind ok">'+label+(/Maint|Service/.test(label)?' due ':' to ')+dShort(d)+'</span>';
+}
+const vehAlerts=v=>[v.regExp,v.insExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=30).length;
+function vehBadge(){const n=S.vehicles.reduce((t,v)=>t+vehAlerts(v),0),b=$('#navVehN');b.hidden=!n;b.textContent=n}
+function vehLoanCell(v){
+  if(v.status!=='loan')return '<span class="ind ok">Fully paid</span>';
+  const o=vehLoan(v);if(!o)return '<span class="ind na">On a loan</span>';
+  return '<span class="ind na">'+(o.paid||0)+(o.n?' of '+o.n:'')+' paid</span>'+(o.n?'<div class="small">'+fmt(oweBal(o))+' left'+(oweNext(o)?' · next '+dShort(oweNext(o)):'')+'</div>':'');
+}
+function vehTotals(){const cars=S.vehicles.filter(v=>v.kind!=='equipment'),onLoan=cars.filter(v=>v.status==='loan'),left=onLoan.reduce((t,v)=>{const o=vehLoan(v);return t+(o&&o.n?oweBal(o):0)},0);return {n:cars.length,eq:S.vehicles.length-cars.length,onLoan:onLoan.length,paid:cars.length-onLoan.length,left,due:S.vehicles.reduce((t,v)=>t+vehAlerts(v),0)}}
+function renderVehicles(){
+  const blocked=store.mode==='cloud'&&!store.vehicles;$('#vehSetup').hidden=!blocked||!S.loaded;$('#vehAddBtn').disabled=blocked;
+  const t=vehTotals();
+  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]]
+    .map(([k,v],i)=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+(i===4&&t.due?' neg':'')+'">'+v+'</span></div>').join('');
+  $('#vehList').innerHTML=S.vehicles.length?S.vehicles.slice().sort((a,b)=>(a.status==='loan'?0:1)-(b.status==='loan'?0:1)||String(a.name).localeCompare(b.name)).map(v=>{
+    const eq=v.kind==='equipment';
+    const facts=(eq?[['Installed at',v.owner],['Installed',v.bought?dShort(v.bought):''],['Installer / supplier',v.user],['Cost',v.price?fmt(v.price):''],['Warranty with',v.insurer]]:[['Plate',v.plate],['Colour',v.color],['Registered to',v.owner],['Used by',v.user],['Price',v.price?fmt(v.price):''],['Bought',v.bought?dShort(v.bought):''],['Car insurance',v.insurer],['Odometer',v.odo?Number(v.odo).toLocaleString('en-PH')+' km':'']]).filter(x=>x[1]);
+    return '<div class="card stack" data-vid="'+v.id+'"><div class="row spread"><div><h2>'+esc(v.name)+(v.year?' · '+esc(v.year):'')+'</h2><span class="small muted">'+esc(eq?[v.owner,v.bought?'installed '+dShort(v.bought):''].filter(Boolean).join(' · '):[v.user?'Used by '+v.user:'',v.plate].filter(Boolean).join(' · '))+'</span></div>'
+      +'<div class="row"><button type="button" class="btn link" data-vedit="'+v.id+'">Edit</button><button type="button" class="btn link" data-vdel="'+v.id+'">Delete</button></div></div>'
+      +'<div class="row" style="gap:8px;flex-wrap:wrap">'+(eq?dueChip(v.insExp,'Warranty')+(v.pms?dueChip(v.pms,'Maintenance'):'')+'</div>':vehLoanCell(v).replace('<div class="small">','<span class="small" style="align-self:center">').replace(/<\/div>$/,'</span>')+dueChip(v.regExp,'Registration')+dueChip(v.insExp,'Insurance')+(v.pms?dueChip(v.pms,'Service'):'')+'</div>')
+      +(facts.length?'<div class="pfacts">'+facts.map(([k,x])=>'<div><span class="k">'+k+'</span>'+esc(x)+'</div>').join('')+'</div>':'')
+      +(v.notes?'<p class="small muted" style="margin:0">'+esc(v.notes)+'</p>':'')+vehRecords(v)+'</div>'}).join('')
+    :'<div class="card"><p class="muted" style="margin:0">'+(blocked?'Run supabase/vehicles.sql first.':'No vehicles yet. Tap Add a vehicle.')+'</p></div>';
+}
+/* records per vehicle: registration and insurance renewals, maintenance, repairs, each with an optional photo/PDF (private "proofs" folder).
+   Saving a renewal or service with a "valid until / next service" date also updates that due date on the car. */
+const VREC=['Registration renewal','Insurance renewal','Maintenance (PMS)','Repair','Tires & battery','Other'],EREC=['Installation','Cleaning','Maintenance','Repair','Warranty claim','Other'];
+const recTypes=v=>v.kind==='equipment'?EREC:VREC;
+const vrecs=v=>v.recs||(v.recs=[]);
+function vehRecords(v){
+  const list=vrecs(v).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0),cloud=store.mode==='cloud',tot=list.reduce((t,r)=>t+(+r.amt||0),0);
+  let h='<div class="row spread"><h3>'+(v.kind==='equipment'?'Installation & maintenance records':'Registration, insurance & maintenance records')+(list.length?' · '+list.length+' · '+fmt(tot)+' spent':'')+'</h3></div>';
+  if(list.length)h+='<div class="scroll"><table class="dues"><thead><tr><th>Date</th><th>Record</th><th class="r">Amount</th><th>Odometer</th><th></th></tr></thead><tbody>'
+    +list.map(r=>'<tr><td style="white-space:nowrap">'+dShort(r.date)+'</td><td><strong>'+esc(r.type)+'</strong>'+(r.until?'<div class="small">'+(/Maint|Clean|Install/.test(r.type)?'Next maintenance ':'Valid until ')+dShort(r.until)+'</div>':'')+(r.notes?'<div class="small muted">'+esc(r.notes)+'</div>':'')+'</td>'
+      +'<td class="num r">'+(r.amt?fmt(r.amt):'–')+'</td><td class="small">'+(r.odo?Number(r.odo).toLocaleString('en-PH')+' km':'')+'</td><td class="acts">'
+      +(r.proof?'<button type="button" class="btn link" data-vrview="'+v.id+'|'+r.id+'">View proof</button>':'')
+      +(cloud?'<button type="button" class="btn link" data-vrup="'+v.id+'|'+r.id+'">'+(r.proof?'Replace proof':'Upload proof')+'</button>':'')
+      +'<button type="button" class="btn link" data-vredit="'+v.id+'|'+r.id+'">Edit</button><button type="button" class="btn link" data-vrdel="'+v.id+'|'+r.id+'">Delete</button></td></tr>').join('')+'</tbody></table></div>';
+  const f=S.vrecFor&&S.vrecFor.vid===v.id?S.vrecFor:null;
+  if(f){const r=f.id?vrecs(v).find(x=>x.id===f.id):{date:today(),type:recTypes(v)[2]};
+    h+='<form class="form payform" data-vrform="'+v.id+'" autocomplete="off">'
+      +'<div class="f c3"><label>Date</label><input type="date" name="date" value="'+esc(r.date||'')+'" required></div>'
+      +'<div class="f c3"><label>Record</label><select name="type">'+recTypes(v).map(x=>'<option'+(x===r.type?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'
+      +'<div class="f c3"><label>Amount (₱)</label><input type="number" name="amt" min="0" step="0.01" inputmode="decimal" value="'+esc(r.amt||'')+'"></div>'
+      +'<div class="f c3"><label>Odometer (km)</label><input type="number" name="odo" min="0" step="1" inputmode="numeric" value="'+esc(r.odo||'')+'"></div>'
+      +'<div class="f c4"><label>Valid until / next service</label><input type="date" name="until" value="'+esc(r.until||'')+'"></div>'
+      +'<div class="f c8"><label>Notes</label><input type="text" name="notes" maxlength="200" value="'+esc(r.notes||'')+'" placeholder="e.g. Change oil, Toyota Alabang; OR/CR renewed at LTO"></div>'
+      +(cloud?'<div class="f c12"><label>Photo or PDF (receipt, OR/CR, policy, service report; optional)</label><input type="file" name="proof" accept="image/*,application/pdf"><span class="hint">'+(r.proof?'A file is already saved; choosing one replaces it.':'You can also add it later with Upload proof.')+'</span></div>':'')
+      +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add record')+'</button><button type="button" class="btn" data-vrcancel="1">Cancel</button><span class="msg" data-vrmsg></span></div></form>';
+  } else h+='<div class="row"><button type="button" class="btn" data-vradd="'+v.id+'">Add a record</button><span class="small muted">Registration, insurance, PMS, repairs…</span></div>';
+  return h;
+}
+async function uploadVehFile(v,r,file){
+  let blob,ext;
+  if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){if(file.size>10485760)throw{code:'big'};blob=file;ext='pdf'}
+  else if(file.type.startsWith('image/')||/\.(jpe?g|png|heic|webp)$/i.test(file.name)){blob=await b64Blob(await shrinkImage(file,2000));ext='jpg'}
+  else throw{code:'type'};
+  const path=store.user.id+'/vehicles/'+v.id+'/'+r.id+'-'+Date.now()+'.'+ext;
+  const {error}=await proofs().upload(path,blob,{contentType:ext==='pdf'?'application/pdf':'image/jpeg'});
+  if(error)throw error;
+  const old=r.proof;r.proof=path;saveVehicle(v);if(old)proofs().remove([old]).catch(()=>{});
+}
+async function attachVehFile(v,r,file){toast('Uploading…');try{await uploadVehFile(v,r,file);render();toast('File saved.')}catch(err){render();alert(proofError(err))}}
+const vehFileIn=document.createElement('input');vehFileIn.type='file';vehFileIn.accept='image/*,application/pdf';vehFileIn.hidden=true;document.body.appendChild(vehFileIn);
+vehFileIn.addEventListener('change',()=>{const f=vehFileIn.files[0],t=S.vrecUp;vehFileIn.value='';S.vrecUp=null;if(!f||!t)return;const v=S.vehicles.find(x=>x.id===t.vid),r=v&&vrecs(v).find(x=>x.id===t.id);if(r)attachVehFile(v,r,f)});
+function renderDashVeh(){
+  const card=$('#dashVeh');card.hidden=!S.vehicles.length;if(!S.vehicles.length)return;
+  const t=vehTotals();
+  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
+  $('#dashVehBody').innerHTML=S.vehicles.slice().sort((a,b)=>String(a.name).localeCompare(b.name)).map(v=>'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+'</td></tr>').join('');
+}
+const VLAB={vehicle:{vhNameL:'Vehicle',vhOwnerL:'Registered to',vhUserL:'Used by',vhBoughtL:'Date bought',vhInsurerL:'Car insurance with',vhInsExpL:'Insurance expires',vhPmsL:'Next service (PMS)'},
+  equipment:{vhNameL:'Equipment',vhOwnerL:'Installed at',vhUserL:'Installer / supplier',vhBoughtL:'Date installed',vhInsurerL:'Warranty with',vhInsExpL:'Warranty until',vhPmsL:'Next maintenance / cleaning'}};
+function setVehKind(k){$('#vehForm').classList.toggle('equip',k==='equipment');Object.entries(VLAB[k]||VLAB.vehicle).forEach(([id,t])=>{$('#'+id).textContent=t});$('#vhName').placeholder=k==='equipment'?'e.g. Solar panels, Brentville':'e.g. Mercedes GLC 2024'}
+$('#vhKind').addEventListener('change',e=>setVehKind(e.target.value));
+function openVehicle(v){
+  S.vehEdit=v?v.id:null;const set=(id,x)=>{$(id).value=x==null?'':x};
+  $('#vhKind').value=v?v.kind||'vehicle':'vehicle';setVehKind($('#vhKind').value);set('#vhName',v&&v.name);set('#vhYear',v&&v.year);set('#vhPlate',v&&v.plate);set('#vhColor',v&&v.color);set('#vhOwner',v&&v.owner);set('#vhUser',v&&v.user);$('#vhStatus').value=v?v.status||'paid':'loan';
+  $('#vhLoan').innerHTML='<option value="">None / not listed</option>'+S.loans.filter(l=>l.dir==='owe').map(l=>'<option value="'+l.id+'"'+(v&&v.loan===l.id?' selected':'')+'>'+esc(l.name)+'</option>').join('');
+  set('#vhPrice',v&&v.price);set('#vhBought',v&&v.bought);set('#vhReg',v&&v.regExp);set('#vhInsurer',v&&v.insurer);set('#vhInsExp',v&&v.insExp);set('#vhPms',v&&v.pms);set('#vhOdo',v&&v.odo);set('#vhNotes',v&&v.notes);
+  $('#vhSave').textContent=v?'Save changes':'Add vehicle';$('#vhMsg').textContent='';$('#vehForm').hidden=false;$('#vehForm').scrollIntoView({block:'center'});$('#vhName').focus();
+}
+$('#vehAddBtn').addEventListener('click',()=>openVehicle(null));
+$('#vhCancel').addEventListener('click',()=>{$('#vehForm').hidden=true;S.vehEdit=null});
+$('#vehForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const txt=(id,n)=>$(id).value.trim().slice(0,n),name=txt('#vhName',60);
+  if(!name){$('#vhMsg').textContent='Fill in the name.';return}
+  const old=S.vehEdit&&S.vehicles.find(v=>v.id===S.vehEdit),kind=$('#vhKind').value,status=kind==='equipment'?'paid':$('#vhStatus').value;
+  const v=Object.assign(old||{id:newId()},{kind,name,year:txt('#vhYear',4),plate:txt('#vhPlate',12).toUpperCase(),color:txt('#vhColor',30),owner:txt('#vhOwner',60),user:txt('#vhUser',60),status,loan:status==='loan'?$('#vhLoan').value:'',
+    price:Math.round((parseFloat($('#vhPrice').value)||0)*100)/100,bought:$('#vhBought').value,regExp:$('#vhReg').value,insurer:txt('#vhInsurer',60),insExp:$('#vhInsExp').value,pms:$('#vhPms').value,odo:Math.max(0,parseInt($('#vhOdo').value,10)||0),notes:txt('#vhNotes',200)});
+  if(!old)S.vehicles.push(v);saveVehicle(v);$('#vehForm').hidden=true;S.vehEdit=null;render();toast(old?'Vehicle updated.':'Vehicle added.');
+});
+$('#vehList').addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.vedit){const v=S.vehicles.find(x=>x.id===t.dataset.vedit);if(v)openVehicle(v);return}
+  if(t.dataset.vdel){const v=S.vehicles.find(x=>x.id===t.dataset.vdel);if(v&&confirm('Delete '+v.name+' and its records?')){dropProofs(vrecs(v));dropVehicle(v.id);render()}return}
+  const ref=x=>{const [vid,id]=x.split('|'),v=S.vehicles.find(y=>y.id===vid);return {v,r:v&&vrecs(v).find(y=>y.id===id)}};
+  if(t.dataset.vrview){const {r}=ref(t.dataset.vrview);if(r&&r.proof)viewProof(r.proof);return}
+  if(store.member)return;
+  if(t.dataset.vradd){S.vrecFor={vid:t.dataset.vradd,id:null};render();return}
+  if(t.dataset.vrcancel){S.vrecFor=null;render();return}
+  if(t.dataset.vredit){const [vid,id]=t.dataset.vredit.split('|');S.vrecFor={vid,id};render();return}
+  if(t.dataset.vrup){const [vid,id]=t.dataset.vrup.split('|');S.vrecUp={vid,id};vehFileIn.click();return}
+  if(t.dataset.vrdel){const {v,r}=ref(t.dataset.vrdel);if(v&&r&&confirm('Delete this '+r.type.toLowerCase()+' record'+(r.proof?' and its file':'')+'?')){dropProofs([r]);v.recs=vrecs(v).filter(x=>x!==r);saveVehicle(v);render()}return}
+});
+$('#vehList').addEventListener('submit',e=>{
+  const fm=e.target.closest('[data-vrform]');if(!fm)return;e.preventDefault();if(store.member)return;
+  const v=S.vehicles.find(x=>x.id===fm.dataset.vrform);if(!v)return;const g=n=>fm.elements[n].value,msg=fm.querySelector('[data-vrmsg]');
+  if(!g('date'))return msg.textContent='Choose the date.';
+  const old=S.vrecFor&&S.vrecFor.id&&vrecs(v).find(x=>x.id===S.vrecFor.id);
+  const r=Object.assign(old||{id:newId()},{date:g('date'),type:g('type'),amt:Math.round((parseFloat(g('amt'))||0)*100)/100,odo:Math.max(0,parseInt(g('odo'),10)||0),until:g('until'),notes:g('notes').trim().slice(0,200)});
+  if(!old)vrecs(v).push(r);
+  if(r.until){if(r.type==='Registration renewal'&&(!v.regExp||r.until>v.regExp))v.regExp=r.until;if(r.type==='Insurance renewal'&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^(Maintenance|Cleaning|Installation)/.test(r.type)&&(!v.pms||r.until>v.pms||v.pms<=r.date))v.pms=r.until;if(r.type==='Warranty claim'&&false)v.insExp=r.until}
+  if(r.odo&&r.odo>(+v.odo||0))v.odo=r.odo;
+  const file=fm.elements.proof&&fm.elements.proof.files[0];
+  S.vrecFor=null;saveVehicle(v);render();toast('Record saved for '+v.name+'.');
+  if(file)attachVehFile(v,r,file);
 });
 
 /* ---------- insurance policies (own table, supabase/insurance.sql; shared login can only view) ---------- */
