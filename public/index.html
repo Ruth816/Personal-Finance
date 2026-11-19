@@ -474,7 +474,7 @@ body.member .upq{display:none}
       <button type="button" class="btn" data-act="report">Monthly report (PDF)</button>
     </div>
     <div class="dash-grid">
-      <div class="card stack span2 alertcard" id="dashAlerts" hidden><div class="row spread"><h2>⏰ Coming up in the next 60 days</h2><span class="small" id="dashAlertsN"></span></div><div id="dashAlertsList"></div></div>
+      <div class="card stack span2 alertcard" id="dashAlerts" hidden><div class="row spread"><h2>⏰ Coming up in the next 30 days</h2><span class="small" id="dashAlertsN"></span></div><div id="dashAlertsList"></div></div>
       <div class="card stack"><div class="row spread"><h2 id="dashGrpTitle">Spending by group</h2><a href="#budget" data-go="budget" class="small">Budget tracking</a></div><div id="dashGroups"></div></div>
       <div class="card stack"><h2>Last 6 months</h2><div id="dashMonths"></div></div>
       <div class="card stack span2"><div class="row spread"><h2>Latest items</h2><a href="#log" data-go="log" class="small">See the whole log</a></div>
@@ -1438,7 +1438,7 @@ function dueChip(d,label){
   if(days<=ALERT_DAYS)return '<span class="ind due soon">'+label+' due '+dShort(d)+' · '+days+' days</span>';
   return '<span class="ind due ok">'+label+(/Maint|Service/.test(label)?' due ':' to ')+dShort(d)+'</span>';
 }
-const ALERT_DAYS=60;
+const ALERT_DAYS=30;
 const vehAlerts=v=>[v.regExp,v.insExp,v.tplExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=ALERT_DAYS).length;
 function vehBadge(){const n=S.vehicles.reduce((t,v)=>t+vehAlerts(v),0),b=$('#navVehN');b.hidden=!n;b.textContent=n}
 function vehLoanCell(v){
@@ -1450,7 +1450,7 @@ function vehTotals(){const cars=S.vehicles.filter(v=>v.kind!=='equipment'),onLoa
 function renderVehicles(){
   const blocked=store.mode==='cloud'&&!store.vehicles;$('#vehSetup').hidden=!blocked||!S.loaded;$('#vehAddBtn').disabled=blocked;
   const t=vehTotals();
-  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 60 days',String(t.due)]]
+  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]]
     .map(([k,v],i)=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+(i===4&&t.due?' neg':'')+'">'+v+'</span></div>').join('');
   const vehCard=v=>{
     const eq=v.kind==='equipment';
@@ -1513,8 +1513,11 @@ function upcoming(){
   S.vehicles.forEach(v=>{const eq=v.kind==='equipment';
     [[v.regExp,'Registration'],[v.insExp,eq?'Warranty':'Comprehensive insurance'],[v.tplExp,'CTPL insurance'],[v.pms,eq?'Maintenance':'Service (PMS)']].forEach(([d,what])=>{if(d&&!(eq&&what==='Registration')){const n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what,who:v.name+(v.plate?' · '+v.plate:''),go:'vehicles'})}})});
   S.policies.filter(p=>p.kind==='paying'&&p.paidUntil).forEach(p=>{const end=ymd(new Date(+p.paidUntil.slice(0,4),+p.paidUntil.slice(5),0)),n=days(end);if(n<=ALERT_DAYS)out.push({n,d:end,what:'Life insurance premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
+  /* yearly premiums with no 'paid up to' (e.g. BDO Life charged to the card each year): next policy anniversary */
+  S.policies.filter(p=>p.kind==='paying'&&!p.paidUntil&&p.start&&!(+p.monthly)&&(+p.annual)).forEach(p=>{const d=nextAnniv(p.start),n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what:'Life insurance yearly premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
   return out.sort((a,b)=>a.n-b.n);
 }
+function nextAnniv(start){const t=today();let y=+t.slice(0,4),d=y+start.slice(4);if(d<t)d=(y+1)+start.slice(4);return d}
 function renderAlerts(){
   const list=upcoming(),card=$('#dashAlerts');card.hidden=!list.length;if(!list.length)return;
   $('#dashAlertsN').textContent=list.length+(list.length===1?' item':' items');
@@ -1523,7 +1526,7 @@ function renderAlerts(){
 function renderDashVeh(){
   const card=$('#dashVeh');card.hidden=!S.vehicles.length;if(!S.vehicles.length)return;
   const t=vehTotals();
-  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 60 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
+  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
   $('#dashVehBody').innerHTML=S.vehicles.slice().sort((a,b)=>(a.kind==='equipment'?1:0)-(b.kind==='equipment'?1:0)||String(a.name).localeCompare(b.name)).map((v,i,arr)=>(i===0||(arr[i-1].kind==='equipment')!==(v.kind==='equipment')?'<tr class="group"><td colspan="5"><strong>'+(v.kind==='equipment'?'Equipment':'Vehicles')+'</strong></td></tr>':'')+'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+(v.kind!=='equipment'&&v.tplExp?'<div style="margin-top:4px">'+dueChip(v.tplExp,'CTPL')+'</div>':'')+'</td></tr>').join('');
 }
 const VLAB={vehicle:{vhNameL:'Vehicle',vhOwnerL:'Registered to',vhUserL:'Used by',vhBoughtL:'Date bought',vhInsurerL:'Car insurance with',vhInsExpL:'Comprehensive insurance expires',vhPmsL:'Next service (PMS)'},
@@ -1597,8 +1600,9 @@ const insPrem=p=>+p.monthly?'<span class="num">'+fmt(+p.monthly)+'</span><div cl
 const insPolicy=p=>'<strong>'+esc(p.insurer)+'</strong><div class="small">'+esc(p.plan)+(p.policyNo?' · '+esc(p.policyNo):'')+'</div>';
 /* status of a policy still being paid: overdue when "paid up to" is before this month, due soon when it is this or next month */
 function insState(p){
-  const cur=today().slice(0,7),nx=addMonths(cur+'-01',2).slice(0,7);
+  const cur=today().slice(0,7),nx=addMonths(cur+'-01',1).slice(0,7);
   if(p.paidUntil){if(p.paidUntil<cur)return '<span class="ind no">Overdue since '+ymShort(p.paidUntil)+'</span>';if(p.paidUntil<=nx)return '<span class="ind no">Due soon · paid to '+ymShort(p.paidUntil)+'</span>';return '<span class="ind ok">Paid to '+ymShort(p.paidUntil)+'</span>'}
+  if(!(+p.monthly)&&(+p.annual)&&p.start){const d=nextAnniv(p.start),n=Math.round((toDate(d)-toDate(today()))/864e5);return '<span class="ind '+(n<=ALERT_DAYS?'no':'na')+'">Yearly premium · next '+dShort(d)+'</span>'}
   return '<span class="ind na">'+(/auto/i.test(p.payMode||'')?'Auto-charged':'Active')+(p.ends?' · ends '+esc(p.ends):'')+'</span>';
 }
 const insActs=p=>'<td style="white-space:nowrap"><button type="button" class="btn link" data-iedit="'+p.id+'">Edit</button><button type="button" class="btn link" data-idel="'+p.id+'">Delete</button></td>';
