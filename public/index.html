@@ -375,6 +375,7 @@ body.theme-cute.tone-blue{
   & .f input,& .f select,& .filter input,& .filter select,& .imp select,& .login input,& .track-t input,& .track-t select{background:#F7FBFF}
 }
 }
+.track-t input.incnote{width:220px;min-width:160px;text-align:left;font-family:var(--body)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -481,7 +482,7 @@ body.theme-cute.tone-blue{
     <div class="tiles" id="incTiles"></div>
     <div class="card stack">
       <div class="row spread"><h2>Income tracking</h2><span class="small muted">Total income = Actual + Additional</span></div>
-      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Actual</th><th class="r">Additional</th><th class="r">Total income this month</th></tr></thead><tbody id="incBody"></tbody></table></div>
+      <div class="scroll"><table class="track-t"><thead><tr><th>Income</th><th class="r">Actual</th><th class="r">Additional</th><th class="r">Total income this month</th><th>Notes</th></tr></thead><tbody id="incBody"></tbody></table></div>
     </div>
     <div class="card stack">
       <div class="row spread"><h2>Expense tracking</h2><span class="small muted">Budget = Budget tracking · Actual = Expenses log</span></div>
@@ -759,7 +760,7 @@ const sum=a=>a.reduce((t,x)=>t+x.amt,0);
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
 const newId=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 
-const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null};
+const S={months:{},budget:{},month:today().slice(0,7),view:'dashboard',editing:null,loaded:false,fltAcct:'',fltText:'',imp:null,props:[],propEdit:null,payFor:null,refunds:[],refEdit:null,notes:{}};
 
 /* ---------- storage (Supabase, with browser fallback) ---------- */
 const LS='ruth-expenses-v1';
@@ -772,13 +773,13 @@ const byTag=x=>x.by&&x.by!==uid()&&store.names[x.by]?' <span class="bytag">added
 function setStatus(kind,text){const el=$('#status');el.className='status '+kind;$('#statusText').textContent=text;$('#signOut').hidden=store.mode!=='cloud'}
 function useLocal(text){
   store.mode='local';
-  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[]}}catch(e){store.mode='memory'}
+  try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){S.months=d.months||{};S.budget=d.budget||{};S.props=d.props||[];S.refunds=d.refunds||[];S.notes=d.notes||{}}}catch(e){store.mode='memory'}
   S.loaded=true;document.body.classList.remove('locked');
   cleanUp().catch(()=>{});
   setStatus('local',store.mode==='local'?(text||'Saved in this browser only, not synced to your other devices'):'Not saving: this view cannot store data');
   render();
 }
-function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds}))}catch(e){setStatus('bad','Could not save in this browser')}}}
+function saveLocal(){if(store.mode==='local'){try{localStorage.setItem(LS,JSON.stringify({months:S.months,budget:S.budget,props:S.props,refunds:S.refunds,notes:S.notes}))}catch(e){setStatus('bad','Could not save in this browser')}}}
 /* receipt_path is only sent once supabase/receipts.sql has been run (store.hasRp) */
 const toRow=x=>Object.assign({id:x.id,user_id:uid(),date:x.date,cat:x.cat,descr:x.desc,amt:x.amt,acct:x.acct,notes:x.notes||'',ts:x.ts},store.hasRp&&x.rp!==undefined?{receipt_path:x.rp||null}:{});
 const fromRow=r=>Object.assign({id:r.id,date:r.date,cat:r.cat,desc:r.descr,amt:+r.amt,acct:r.acct,notes:r.notes||'',ts:+r.ts},r.receipt_path?{rp:r.receipt_path}:{},r.added_by?{by:r.added_by}:{});
@@ -815,7 +816,7 @@ const dbInsertMany=list=>persist(()=>store.sb.from('expenses').insert(list.map(t
 const dbBudget=(cat,v)=>store.member&&!String(cat).startsWith('inc:')?undefined:persist(()=>v>0?store.sb.from('budgets').upsert({user_id:uid(),cat,amount:v},{onConflict:'user_id,cat'}):store.sb.from('budgets').delete().eq('cat',cat));
 
 function showLogin(){
-  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];
+  store.mode='login';store.owner=null;store.member=false;store.names={};document.body.classList.remove('member','tone-blue');S.loaded=false;S.months={};S.budget={};S.props=[];S.refunds=[];S.notes={};
   document.body.classList.add('locked');$('#v-login').hidden=false;$('#pageTitle').textContent='RLW App';menu(false);
   setStatus('','Sign in to see your expenses');$('#lEmail').focus();
 }
@@ -829,7 +830,21 @@ async function startCloud(session){
   await loadInbox();
   await loadProps().catch(e=>console.error('properties',e));
   await loadRefunds().catch(e=>console.error('refunds',e));
+  await loadNotes().catch(e=>console.error('notes',e));
   if(!store.member)cleanUp().catch(e=>console.error('clean-up',e));
+}
+/* short text notes (supabase/notes.sql): key → note; store.notes is false until that script has been run */
+async function loadNotes(){
+  const {data,error}=await store.sb.from('notes').select('key,note');
+  store.notes=!error;S.notes={};if(!error)data.forEach(r=>S.notes[r.key]=r.note);
+  if(S.view==='income')render();
+}
+function saveNote(key,text){
+  text=String(text||'').trim().slice(0,200);
+  if(text)S.notes[key]=text;else delete S.notes[key];
+  if(store.mode!=='cloud'){saveLocal();return}
+  if(!store.notes)return;
+  persist(()=>text?store.sb.from('notes').upsert({user_id:uid(),key,note:text},{onConflict:'user_id,key'}):store.sb.from('notes').delete().eq('key',key));
 }
 /* which records this login works on: its own, or (for a shared login) its owner's */
 async function loadMembership(){
@@ -1136,7 +1151,7 @@ $('#propList').addEventListener('submit',e=>{
 /* ---------- income & expense tracking (private page) ----------
    Typed income is kept with the budgets: 'inc:<row>' = monthly projection, 'inc:<row>:<YYYY-MM>' = actual for that month.
    Property income comes from Rented properties; expenses come from Budget tracking and the Expenses log. */
-const INC=[['salary','Salary'],['property','Property (rent)'],['interest','Interest received'],['stocks','Income from stocks'],['others','Others']];
+const INC=[['salary','Salary/cash allowance'],['property','Property (rent)'],['interest','Interest received'],['stocks','Income from stocks'],['others','Others']];
 /* interest sources: every = months between payouts; payout months are set with 'inc:<id>:m' (first payout month, 1–12) */
 const INT=[{id:'int-bpi',name:'BPI time deposit – PHP',every:3,m:3},{id:'int-usd',name:'BPI time deposit – USD',every:3,m:3},{id:'int-bdo',name:'Time deposit – BDO',every:3,m:3},{id:'int-pru',name:'Pru Life',every:12,m:12},{id:'int-insular',name:'Insular Life via UnionBank',every:1,m:1}];
 const MSHORT=MONTHS.map(x=>x.slice(0,3));
@@ -1154,7 +1169,11 @@ function renderIncome(items){
   /* income columns: Actual | Additional | Total income this month (= Actual + Additional) */
   let aI=0,dI=0;
   const addOf=id=>+B['inc:'+id+':add:'+m]||0;
-  const cells=(aH,id,a,d)=>'<td class="num r">'+aH+'</td><td class="num r">'+(id?inp('inc:'+id+':add:'+m,d):money(d))+'</td><td class="num r"><strong>'+money(a+d)+'</strong></td>';
+  const noteOff=store.mode==='cloud'&&!store.notes;
+  const noteCell=id=>{if(!id)return '<td></td>';const k='inc:'+id+':note:'+m,v=S.notes[k]||'';
+    if(!show)return '<td>'+(v?'<span class="mask">•••••</span>':'')+'</td>';
+    return '<td><input type="text" class="incnote" maxlength="200" data-incnote="'+k+'" value="'+esc(v)+'" placeholder="'+(noteOff?'Needs supabase/notes.sql':'Add a note')+'"'+(noteOff?' disabled':'')+' aria-label="Note"></td>'};
+  const cells=(aH,id,a,d)=>'<td class="num r">'+aH+'</td><td class="num r">'+(id?inp('inc:'+id+':add:'+m,d):money(d))+'</td><td class="num r"><strong>'+money(a+d)+'</strong></td>'+noteCell(id);
   $('#incBody').innerHTML=INC.map(([id,name])=>{
     if(id==='interest'){
       let ga=0,gd=0;
@@ -1176,13 +1195,14 @@ function renderIncome(items){
   $('#incTiles').innerHTML=[['Total income · '+MONTHS[+m.slice(5)-1].slice(0,3),money(tI),''],['Expenses · '+MONTHS[+m.slice(5)-1].slice(0,3),money(aE),''],['Net',show?(net<0?'('+fmt(-net)+')':fmt(net)):'<span class="mask">•••••</span>',show&&net<0?' neg':'']]
     .map(([k,v,c])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+c+'">'+v+'</span></div>').join('');
   const lab=(sel,ls)=>document.querySelectorAll(sel+' tr').forEach(tr=>ls.forEach((l,i)=>{if(l&&tr.cells[i])tr.cells[i].dataset.l=l}));
-  lab('#incBody',['','Actual','Additional','Total income']);lab('#expBody',['','Budget','Actual','Variance']);
+  lab('#incBody',['','Actual','Additional','Total income','Notes']);lab('#expBody',['','Budget','Actual','Variance']);
 }
 $('#incShow').addEventListener('click',()=>{S.incShow=!S.incShow;render()});
 /* tapping a hidden amount (•••••) shows the amounts, so figures can be typed straight away */
 $('#v-income').addEventListener('click',e=>{if(!S.incShow&&e.target.closest('.mask')){S.incShow=true;render()}});
 $('#incBody').addEventListener('change',e=>{
-  const el=e.target;if(!el.dataset.inc)return;
+  const el=e.target;if(el.dataset.incnote){saveNote(el.dataset.incnote,el.value);return}
+  if(!el.dataset.inc)return;
   const amt=Math.round(Math.max(0,parseFloat(el.value)||0)*100)/100;
   if(amt>0)S.budget[el.dataset.inc]=amt;else delete S.budget[el.dataset.inc];
   dbBudget(el.dataset.inc,amt);setTimeout(render,0);
