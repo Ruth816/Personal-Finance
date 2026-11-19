@@ -537,7 +537,7 @@ body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.mem
         <div class="f c6"><label for="owNotes">Notes</label><input type="text" id="owNotes" maxlength="200"></div>
         <div class="row c12"><button type="submit" class="btn primary" id="owSave">Add loan</button><button type="button" class="btn" id="owCancel">Cancel</button><span class="msg" id="owMsg" role="status"></span></div>
       </form>
-      <div class="scroll"><table><thead><tr><th>Loan</th><th class="r">Each payment</th><th>Paid</th><th class="r">Still to pay</th><th>Next due</th><th>Account</th><th></th></tr></thead><tbody id="oweBody"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Loan</th><th class="r">Each payment</th><th class="r">Total payable</th><th class="r">Paid so far</th><th class="r">Still to pay</th><th>Next due</th><th>Account</th><th></th></tr></thead><tbody id="oweBody"></tbody></table></div>
     </div>
   </section>
 
@@ -1495,19 +1495,20 @@ const oweEnd=o=>o.first&&o.n?addMonths(o.first,(o.n-1)*(o.every||1)):'';
 const OWE_EVERY={1:'a month',3:'every 3 months',6:'every 6 months',12:'a year'};
 function renderOwe(){
   const list=S.loans.filter(l=>l.dir==='owe').sort((a,b)=>(oweNext(a)||'9999')<(oweNext(b)||'9999')?-1:1),td=today();
-  const mo=list.reduce((t,o)=>t+(oweLeft(o)===0?0:o.amt/(o.every||1)),0),bal=list.reduce((t,o)=>t+(oweBal(o)||0),0);
-  $('#oweTiles').innerHTML=[['Loans you are paying',String(list.filter(o=>oweLeft(o)!==0).length)],['About a month',fmt(mo)],['Still to pay (known)',fmt(bal)]]
+  const mo=list.reduce((t,o)=>t+(oweLeft(o)===0?0:o.amt/(o.every||1)),0),bal=list.reduce((t,o)=>t+(oweBal(o)||0),0),tot=list.reduce((t,o)=>t+(o.n?o.n*o.amt:0),0),pd=list.reduce((t,o)=>t+(o.paid||0)*o.amt,0);
+  $('#oweTiles').innerHTML=[['Loans you are paying',String(list.filter(o=>oweLeft(o)!==0).length)],['About a month',fmt(mo)],['Total payable',fmt(tot)],['Paid so far',fmt(pd)],['Still to pay',fmt(bal)]]
     .map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
   $('#oweBody').innerHTML=list.length?list.map(o=>{
     const nx=oweNext(o),left=oweLeft(o),done=left===0,late=nx&&nx<td;
     return '<tr><td><strong>'+esc(o.name)+'</strong><div class="small muted">'+esc(o.lender||'')+(o.principal?' · borrowed '+fmt(o.principal):'')+'</div>'+(o.notes?'<div class="small muted">'+esc(o.notes)+'</div>':'')+'</td>'
       +'<td class="r"><span class="num">'+fmt(o.amt)+'</span><div class="small muted">'+(OWE_EVERY[o.every||1]||'')+'</div></td>'
-      +'<td>'+(o.paid||0)+(o.n?' of '+o.n:'')+(o.n?'<div class="track" style="margin-top:4px"><i style="width:'+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%"></i></div>':'')+(oweEnd(o)?'<div class="small muted">Ends '+dShort(oweEnd(o))+'</div>':'')+'</td>'
-      +'<td class="num r"><strong>'+(o.n?fmt(oweBal(o)):'–')+'</strong>'+(o.n?'<div class="small muted">'+left+' to go</div>':'<div class="small muted">add number of payments</div>')+'</td>'
+      +'<td class="num r">'+(o.n?fmt(o.n*o.amt):'–')+(o.n?'<div class="small muted">'+o.n+' payments</div>':'')+'</td>'
+      +'<td class="num r good-t">'+fmt((o.paid||0)*o.amt)+'<div class="small muted" style="white-space:nowrap">'+(o.paid||0)+(o.n?' of '+o.n+' · '+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%':' paid')+'</div>'+(o.n?'<div class="track" style="margin-top:4px;min-width:90px"><i style="width:'+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%"></i></div>':'')+'</td>'
+      +'<td class="num r"><strong>'+(o.n?fmt(oweBal(o)):'–')+'</strong>'+(o.n?'<div class="small muted">'+left+' to go'+(oweEnd(o)?' · ends '+dShort(oweEnd(o)):'')+'</div>':'<div class="small muted">add number of payments</div>')+'</td>'
       +'<td>'+(done?'<span class="ind ok">Fully paid</span>':nx?'<span class="ind '+(late?'no':'na')+'">'+(late?'Overdue · ':'')+dShort(nx)+'</span>':'–')+'</td>'
       +'<td class="small">'+esc(o.acct||'')+'</td>'
       +'<td style="white-space:nowrap">'+(done?'':'<button type="button" class="btn link" data-owlog="'+o.id+'">Paid + log expense</button><button type="button" class="btn link" data-owpaid="'+o.id+'">Paid only</button>')+'<button type="button" class="btn link" data-owedit="'+o.id+'">Edit</button><button type="button" class="btn link" data-owdel="'+o.id+'">Delete</button></td></tr>'}).join('')
-    :'<tr><td colspan="7" class="empty">No loans you are paying yet.</td></tr>';
+    :'<tr><td colspan="8" class="empty">No loans you are paying yet.</td></tr>';
 }
 function openOwe(o){
   S.oweEdit=o?o.id:null;const v=(id,x)=>{$(id).value=x==null?'':x};
