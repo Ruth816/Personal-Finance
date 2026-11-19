@@ -380,6 +380,7 @@ body.theme-cute.tone-blue{
 body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body.member [data-vrup],body.member #vehAddBtn,body.member [data-vedit],body.member [data-vdel],body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.member [data-agentedit]{display:none!important}
 .agent{padding:8px 0;border-bottom:1.5px dashed var(--rule)}.agent:last-child{border-bottom:0}
 #vehForm.equip .vonly{display:none}
+#oweBody tr:has(+ tr.noterow) td{border-bottom:0}.noterow td{padding-top:0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -1313,7 +1314,7 @@ $('#propList').addEventListener('submit',e=>{
    Property income comes from Rented properties; expenses come from Budget tracking and the Expenses log. */
 const INC=[['salary','Salary/cash allowance'],['property','Property (rent)'],['interest','Interest received'],['stocks','Income from stocks/dividends'],['others','Others']];
 /* interest sources: every = months between payouts; payout months are set with 'inc:<id>:m' (first payout month, 1–12) */
-const INT=[{id:'int-bpi',name:'BPI time deposit – PHP',every:3,m:3},{id:'int-usd',name:'BPI time deposit – USD',every:3,m:3},{id:'int-bdo',name:'Time deposit – BDO',every:3,m:3},{id:'int-pru',name:'Pru Life',every:12,m:12},{id:'int-insular',name:'Insular Life via UnionBank',every:1,m:1}];
+const INT=[{id:'int-bpi',name:'BPI time deposit – PHP',every:3,m:3},{id:'int-usd',name:'BPI time deposit – USD',every:3,m:3},{id:'int-bdo',name:'Time deposit – BDO',every:4,m:2},{id:'int-pru',name:'Pru Life',every:12,m:12},{id:'int-insular',name:'Insular Life via UnionBank',every:1,m:1}];
 const MSHORT=MONTHS.map(x=>x.slice(0,3));
 const payMonths=(s,B)=>{const a=+B['inc:'+s.id+':m']||s.m;return MSHORT.filter((_,i)=>((i+1-a)%s.every+s.every)%s.every===0)};
 function renderIncome(items){
@@ -1338,7 +1339,7 @@ function renderIncome(items){
     if(id==='interest'){
       let ga=0,gd=0;
       const rows=INT.map(s=>{const a=+B['inc:'+s.id+':'+m]||0,d=addOf(s.id);ga+=a;gd+=d;
-        return '<tr class="sub"><td>'+esc(s.name)+'<span class="auto">'+(s.every===1?'Monthly':s.every===3?'Quarterly':'Yearly')+'</span></td>'+cells(inp('inc:'+s.id+':'+m,a),s.id,a,d)+'</tr>'}).join('');
+        return '<tr class="sub"><td>'+esc(s.name)+'<span class="auto">'+(s.every===1?'Monthly':(s.every===3?'Quarterly':s.every===12?'Yearly':'Every '+s.every+' months')+' · '+payMonths(s,B).join(', '))+'</span></td>'+cells(inp('inc:'+s.id+':'+m,a),s.id,a,d)+'</tr>'}).join('');
       aI+=ga;dI+=gd;
       return '<tr class="group"><td>'+name+'</td>'+cells(money(ga),null,ga,gd)+'</tr>'+rows;
     }
@@ -1695,14 +1696,14 @@ function renderOwe(){
     .map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
   $('#oweBody').innerHTML=list.length?list.map(o=>{
     const nx=oweNext(o),left=oweLeft(o),done=left===0,late=nx&&nx<td;
-    return '<tr><td><strong>'+esc(o.name)+'</strong><div class="small muted">'+esc(o.lender||'')+(o.principal?' · borrowed '+fmt(o.principal):'')+'</div>'+(o.notes?'<div class="small muted">'+esc(o.notes)+'</div>':'')+'</td>'
+    return '<tr><td><strong>'+esc(o.name)+'</strong><div class="small muted">'+esc(o.lender||'')+(o.principal?' · borrowed '+fmt(o.principal):'')+'</div>'+'</td>'
       +'<td class="r"><span class="num">'+fmt(o.amt)+'</span><div class="small muted">'+(OWE_EVERY[o.every||1]||'')+'</div></td>'
       +'<td class="num r">'+(o.n?fmt(o.n*o.amt):'–')+(o.n?'<div class="small muted">'+o.n+' payments</div>':'')+'</td>'
       +'<td class="num r good-t">'+fmt((o.paid||0)*o.amt)+'<div class="small muted" style="white-space:nowrap">'+(o.paid||0)+(o.n?' of '+o.n+' · '+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%':' paid')+'</div>'+(o.n?'<div class="track" style="margin-top:4px;min-width:90px"><i style="width:'+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%"></i></div>':'')+'</td>'
       +'<td class="num r"><strong>'+(o.n?fmt(oweBal(o)):'–')+'</strong>'+(o.n?'<div class="small muted">'+left+' to go'+(oweEnd(o)?' · ends '+dShort(oweEnd(o)):'')+'</div>':'<div class="small muted">add number of payments</div>')+'</td>'
       +'<td>'+(done?'<span class="ind ok">Fully paid</span>':nx?'<span class="ind '+(late?'no':'na')+'">'+(late?'Overdue · ':'')+dShort(nx)+'</span>':'–')+'</td>'
       +'<td class="small">'+esc(o.acct||'')+'</td>'
-      +'<td style="white-space:nowrap">'+(done?'':'<button type="button" class="btn link" data-owlog="'+o.id+'">Paid + log expense</button><button type="button" class="btn link" data-owpaid="'+o.id+'">Paid only</button>')+'<button type="button" class="btn link" data-owhist="'+o.id+'">'+(S.oweHist===o.id?'Hide history':'History ('+oweHistory(o).length+')')+'</button><button type="button" class="btn link" data-owedit="'+o.id+'">Edit</button><button type="button" class="btn link" data-owdel="'+o.id+'">Delete</button></td></tr>'+(S.oweHist===o.id?oweHistRow(o):'')}).join('')
+      +'<td style="white-space:nowrap">'+(done?'':'<button type="button" class="btn link" data-owlog="'+o.id+'">Paid + log expense</button><button type="button" class="btn link" data-owpaid="'+o.id+'">Paid only</button>')+'<button type="button" class="btn link" data-owhist="'+o.id+'">'+(S.oweHist===o.id?'Hide history':'History ('+oweHistory(o).length+')')+'</button><button type="button" class="btn link" data-owedit="'+o.id+'">Edit</button><button type="button" class="btn link" data-owdel="'+o.id+'">Delete</button></td></tr>'+(o.notes?'<tr class="noterow"><td colspan="8" class="small muted">'+esc(o.notes)+'</td></tr>':'')+(S.oweHist===o.id?oweHistRow(o):'')}).join('')
     :'<tr><td colspan="8" class="empty">No loans you are paying yet.</td></tr>';
 }
 function openOwe(o){
