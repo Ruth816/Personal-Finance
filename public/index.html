@@ -375,7 +375,7 @@ body.theme-cute.tone-blue{
   & .f input,& .f select,& .filter input,& .filter select,& .imp select,& .login input,& .track-t input,& .track-t select{background:#F7FBFF}
 }
 }
-.track-t input.incnote{width:220px;min-width:160px;text-align:left;font-family:var(--body)}
+.track-t input.incnote{width:100%;min-width:110px;text-align:left;font-family:var(--body)}
 .toast.verbar{top:16px;bottom:auto;z-index:40}
 body.member [data-vradd],body.member [data-vredit],body.member [data-vrdel],body.member [data-vrup],body.member #vehAddBtn,body.member [data-vedit],body.member [data-vdel],body.member #insAddBtn,body.member [data-iedit],body.member [data-idel],body.member [data-agentedit]{display:none!important}
 .agent{padding:8px 0;border-bottom:1.5px dashed var(--rule)}.agent:last-child{border-bottom:0}
@@ -399,6 +399,18 @@ body.member .upq{display:none}
 .alertrow{display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1.5px dashed var(--rule);text-decoration:none;color:inherit;flex-wrap:wrap}
 .alertrow:last-child{border-bottom:0}
 .alertrow:hover strong{text-decoration:underline}
+/* loan tables fit inside their card: action links stack, small lines wrap */
+#oweBody td:last-child,#loanBody td:last-child{white-space:normal!important;width:1%}
+#oweBody td:last-child .btn.link,#loanBody td:last-child .btn.link{display:block;padding:3px 0;text-align:left;white-space:nowrap}
+#oweBody td .small,#loanBody td .small{white-space:normal!important}
+#oweBody td:first-child,#loanBody td:nth-child(2){min-width:110px}
+#oweBody .track{min-width:70px!important}
+/* every table fits its card: cells with action links stack them, small lines wrap */
+.scroll td:has(> .btn.link){white-space:normal!important;width:1%}
+.scroll td:has(> .btn.link) > .btn.link{display:block;padding:3px 0;text-align:left;white-space:nowrap}
+.scroll td .small,.scroll td .raw{white-space:normal!important}
+.track-t input[type=number]{width:105px}
+.vsub{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:2px 6px;border-left:5px solid var(--line,#24204A);background:rgba(255,255,255,.75);border-radius:8px}.vsub h3{font-size:17px;font-weight:700;margin:0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -562,7 +574,7 @@ body.member .upq{display:none}
         <div class="f c6"><label for="owNotes">Notes</label><input type="text" id="owNotes" maxlength="200"></div>
         <div class="row c12"><button type="submit" class="btn primary" id="owSave">Add loan</button><button type="button" class="btn" id="owCancel">Cancel</button><span class="msg" id="owMsg" role="status"></span></div>
       </form>
-      <div class="scroll"><table><thead><tr><th>Loan</th><th class="r">Each payment</th><th class="r">Total payable</th><th class="r">Paid so far</th><th class="r">Still to pay</th><th>Next due</th><th>Account</th><th></th></tr></thead><tbody id="oweBody"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Loan</th><th class="r">Payment / total</th><th class="r">Paid so far</th><th class="r">Still to pay</th><th>Next due</th><th></th></tr></thead><tbody id="oweBody"></tbody></table></div>
     </div>
   </section>
 
@@ -1450,7 +1462,7 @@ function vehTotals(){const cars=S.vehicles.filter(v=>v.kind!=='equipment'),onLoa
 function renderVehicles(){
   const blocked=store.mode==='cloud'&&!store.vehicles;$('#vehSetup').hidden=!blocked||!S.loaded;$('#vehAddBtn').disabled=blocked;
   const t=vehTotals();
-  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]]
+  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Fully paid',String(t.paid)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]]
     .map(([k,v],i)=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+(i===4&&t.due?' neg':'')+'">'+v+'</span></div>').join('');
   const vehCard=v=>{
     const eq=v.kind==='equipment';
@@ -1461,8 +1473,9 @@ function renderVehicles(){
       +(facts.length?'<div class="pfacts">'+facts.map(([k,x])=>'<div><span class="k">'+k+'</span>'+esc(x)+'</div>').join('')+'</div>':'')
       +(v.notes?'<p class="small muted" style="margin:0">'+esc(v.notes)+'</p>':'')+vehRecords(v)+'</div>'};
   const cars=S.vehicles.filter(v=>v.kind!=='equipment').sort((a,b)=>(a.status==='loan'?0:1)-(b.status==='loan'?0:1)||String(a.name).localeCompare(b.name)),eqs=S.vehicles.filter(v=>v.kind==='equipment').sort((a,b)=>String(a.name).localeCompare(b.name));
+  const subHead=(t,l)=>l.length?'<div class="vsub"><h3>'+t+'</h3><span class="small">'+l.length+' · '+esc(l.map(v=>v.name).join(', '))+'</span></div>':'';
   const grpHead=(t,n)=>'<div class="vgroup"><h2>'+t+'</h2><span class="small">'+n+'</span></div>';
-  $('#vehList').innerHTML=S.vehicles.length?(cars.length?grpHead('🚗 Vehicles',cars.length+(cars.length===1?' car':' cars'))+cars.map(vehCard).join(''):'')+(eqs.length?grpHead('☀️ Equipment',eqs.length+' item'+(eqs.length===1?'':'s')):'')+eqs.map(vehCard).join('')
+  $('#vehList').innerHTML=S.vehicles.length?(cars.length?grpHead('🚗 Vehicles',cars.length+(cars.length===1?' car':' cars'))+subHead('Still on a loan',cars.filter(v=>v.status==='loan'))+cars.filter(v=>v.status==='loan').map(vehCard).join('')+subHead('Fully paid',cars.filter(v=>v.status!=='loan'))+cars.filter(v=>v.status!=='loan').map(vehCard).join(''):'')+(eqs.length?grpHead('☀️ Equipment',eqs.length+' item'+(eqs.length===1?'':'s')):'')+eqs.map(vehCard).join('')
     :'<div class="card"><p class="muted" style="margin:0">'+(blocked?'Run supabase/vehicles.sql first.':'Nothing added yet. Tap Add a vehicle or equipment.')+'</p></div>';
 }
 /* records per vehicle: registration and insurance renewals, maintenance, repairs, each with an optional photo/PDF (private "proofs" folder).
@@ -1742,13 +1755,11 @@ function renderOwe(){
     .map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
   $('#oweBody').innerHTML=list.length?list.map(o=>{
     const nx=oweNext(o),left=oweLeft(o),done=left===0,late=nx&&nx<td;
-    return '<tr><td><strong>'+esc(o.name)+'</strong><div class="small muted">'+esc(o.lender||'')+(o.principal?' · borrowed '+fmt(o.principal):'')+'</div>'+'</td>'
-      +'<td class="r"><span class="num">'+fmt(o.amt)+'</span><div class="small muted">'+(OWE_EVERY[o.every||1]||'')+'</div></td>'
-      +'<td class="num r">'+(o.n?fmt(o.n*o.amt):'–')+(o.n?'<div class="small muted">'+o.n+' payments</div>':'')+'</td>'
+    return '<tr><td><strong>'+esc(o.name)+'</strong><div class="small muted">'+esc([o.lender,o.acct].filter(Boolean).join(' · '))+'</div>'+(o.principal?'<div class="small muted">Borrowed '+fmt(o.principal)+'</div>':'')+'</td>'
+      +'<td class="num r">'+fmt(o.amt)+'<div class="small muted">'+(OWE_EVERY[o.every||1]||'')+(o.n?' · '+o.n+' payments':'')+'</div>'+(o.n?'<div class="small">Total '+fmt(o.n*o.amt)+'</div>':'')+'</td>'
       +'<td class="num r good-t">'+fmt((o.paid||0)*o.amt)+'<div class="small muted" style="white-space:nowrap">'+(o.paid||0)+(o.n?' of '+o.n+' · '+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%':' paid')+'</div>'+(o.n?'<div class="track" style="margin-top:4px;min-width:90px"><i style="width:'+Math.min(100,Math.round((o.paid||0)/o.n*100))+'%"></i></div>':'')+'</td>'
       +'<td class="num r"><strong>'+(o.n?fmt(oweBal(o)):'–')+'</strong>'+(o.n?'<div class="small muted">'+left+' to go'+(oweEnd(o)?' · ends '+dShort(oweEnd(o)):'')+'</div>':'<div class="small muted">add number of payments</div>')+'</td>'
       +'<td>'+(done?'<span class="ind ok">Fully paid</span>':nx?'<span class="ind '+(late?'no':'na')+'">'+(late?'Overdue · ':'')+dShort(nx)+'</span>':'–')+'</td>'
-      +'<td class="small">'+esc(o.acct||'')+'</td>'
       +'<td style="white-space:nowrap">'+(done?'':'<button type="button" class="btn link" data-owlog="'+o.id+'">Paid + log expense</button><button type="button" class="btn link" data-owpaid="'+o.id+'">Paid only</button>')+'<button type="button" class="btn link" data-owhist="'+o.id+'">'+(S.oweHist===o.id?'Hide history':'History ('+oweHistory(o).length+')')+'</button><button type="button" class="btn link" data-owedit="'+o.id+'">Edit</button><button type="button" class="btn link" data-owdel="'+o.id+'">Delete</button></td></tr>'+(o.notes?'<tr class="noterow"><td colspan="8" class="small muted">'+esc(o.notes)+'</td></tr>':'')+(S.oweHist===o.id?oweHistRow(o):'')}).join('')
     :'<tr><td colspan="8" class="empty">No loans you are paying yet.</td></tr>';
 }
