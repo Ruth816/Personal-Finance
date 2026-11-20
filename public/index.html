@@ -413,6 +413,7 @@ body.member .upq{display:none}
 .vsub{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:2px 6px;border-left:5px solid var(--line,#24204A);background:rgba(255,255,255,.75);border-radius:8px}.vsub h3{font-size:17px;font-weight:700;margin:0}
 .addbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;border:2px dashed var(--rule);border-radius:14px}.addbar .btn{font-size:13.5px;padding:7px 12px}
 body.member .addbar{display:none}
+#vehForm:not(.appl) .aponly{display:none}#vehForm.appl .apno{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 </head>
@@ -432,7 +433,9 @@ body.member .addbar{display:none}
     <a href="#income" data-go="income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M12 15v2"/></svg><span>Income &amp; expenses</span></a>
     <a href="#loans" data-go="loans"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M15.2 4.6a5.5 5.5 0 1 1-4.7 13.9"/><path d="M9 6.5v5M7.2 8h3"/></svg><span>Loans</span></a>
     <a href="#insurance" data-go="insurance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.4"/></svg><span>Life insurance</span><span class="badge" id="navInsN" hidden></span></a>
-    <a href="#vehicles" data-go="vehicles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16v-4.5l2-5A1.5 1.5 0 0 1 7.4 5.5h9.2A1.5 1.5 0 0 1 18 6.5l2 5V16"/><path d="M3 16h18v2.5a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1V18h-11v.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M4 11.5h16M7 14.2h1.5M15.5 14.2H17"/></svg><span>Vehicles &amp; equipment</span><span class="badge" id="navVehN" hidden></span></a>
+    <a href="#vehicles" data-go="vehicles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16v-4.5l2-5A1.5 1.5 0 0 1 7.4 5.5h9.2A1.5 1.5 0 0 1 18 6.5l2 5V16"/><path d="M3 16h18v2.5a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1V18h-11v.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M4 11.5h16M7 14.2h1.5M15.5 14.2H17"/></svg><span>Vehicles</span><span class="badge" id="navVehN" hidden></span></a>
+    <a href="#solar" data-go="solar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><span>Solar</span><span class="badge" id="navSolN" hidden></span></a>
+    <a href="#appliances" data-go="appliances"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M5 9h14M8.5 5.8h1.5M8.5 12v4"/></svg><span>Appliances</span><span class="badge" id="navAppN" hidden></span></a>
   </nav>
   <div class="side-foot">rlw-app.com</div>
 </aside>
@@ -496,7 +499,7 @@ body.member .addbar{display:none}
       <div class="card stack span2" id="dashIns" hidden><div class="row spread"><h2>Life insurance policies</h2><a href="#insurance" data-go="insurance" class="small">All policies</a></div>
         <div class="tiles" id="dashInsTiles"></div>
         <div class="scroll"><table><thead><tr><th>Insured</th><th>Policy</th><th class="r">Premium</th><th>Paid by</th><th>Status</th></tr></thead><tbody id="dashInsBody"></tbody></table></div></div>
-      <div class="card stack span2" id="dashVeh" hidden><div class="row spread"><h2>Vehicles &amp; equipment</h2><a href="#vehicles" data-go="vehicles" class="small">See all</a></div>
+      <div class="card stack span2" id="dashVeh" hidden><div class="row spread"><h2>Vehicles</h2><a href="#vehicles" data-go="vehicles" class="small">See all</a></div>
         <div class="tiles" id="dashVehTiles"></div>
         <div class="scroll"><table><thead><tr><th>Item</th><th>Used by / where</th><th>Loan</th><th>Registration</th><th>Insurance (comprehensive, CTPL) / warranty</th></tr></thead><tbody id="dashVehBody"></tbody></table></div></div>
     </div>
@@ -584,16 +587,17 @@ body.member .addbar{display:none}
   <section id="v-vehicles" class="stack" hidden>
     <div class="tiles" id="vehTiles"></div>
     <div class="card stack">
-      <div class="row spread"><h2>Vehicles &amp; equipment</h2><button type="button" class="btn primary" id="vehAddBtn">Add a vehicle or equipment</button></div>
-      <p class="small muted" style="margin:0">Family cars (loan or fully paid, registration, insurance, service) and home equipment such as the solar panels (installed when, warranty, next maintenance). Each has a records log where you can upload receipts, OR/CR, policies and service reports.</p>
+      <div class="row spread"><h2 id="vehHead">Vehicles</h2><button type="button" class="btn primary" id="vehAddBtn">Add a vehicle</button></div>
+      <p class="small muted" style="margin:0" id="vehDesc">Family cars (loan or fully paid, registration, insurance, service) and home equipment such as the solar panels (installed when, warranty, next maintenance). Each has a records log where you can upload receipts, OR/CR, policies and service reports.</p>
       <div class="banner" id="vehSetup" hidden>To save vehicles to your account, run <strong>supabase/vehicles.sql</strong> once in Supabase (SQL Editor → New query → paste → Run), then reload.</div>
       <form class="form payform" id="vehForm" hidden autocomplete="off">
-        <div class="f c4"><label for="vhKind">Type</label><select id="vhKind"><option value="vehicle">Vehicle</option><option value="equipment">Solar / home equipment</option></select></div>
+        <div class="f c4"><label for="vhKind">Type</label><select id="vhKind"><option value="vehicle">Vehicle</option><option value="equipment">Solar / home equipment</option><option value="appliance">Appliance</option></select></div>
         <div class="f c4"><label for="vhName" id="vhNameL">Vehicle</label><input type="text" id="vhName" maxlength="60" placeholder="e.g. Mercedes GLC 2024"></div>
         <div class="f c2"><label for="vhYear">Year</label><input type="number" id="vhYear" min="1950" max="2100" step="1" inputmode="numeric"></div>
         <div class="f c3 vonly"><label for="vhPlate">Plate no.</label><input type="text" id="vhPlate" maxlength="12"></div>
         <div class="f c3 vonly"><label for="vhColor">Colour</label><input type="text" id="vhColor" maxlength="30"></div>
-        <div class="f c4"><label for="vhOwner" id="vhOwnerL">Registered to</label><input type="text" id="vhOwner" maxlength="60"></div>
+        <div class="f c4 aponly"><label for="vhProp">Property</label><select id="vhProp"></select></div>
+        <div class="f c4 apno"><label for="vhOwner" id="vhOwnerL">Registered to</label><input type="text" id="vhOwner" maxlength="60"></div>
         <div class="f c4"><label for="vhUser" id="vhUserL">Used by</label><input type="text" id="vhUser" maxlength="60" placeholder="e.g. Ruth, Justin, driver"></div>
         <div class="f c4 vonly"><label for="vhStatus">Status</label><select id="vhStatus"><option value="loan">Still on a loan</option><option value="paid">Fully paid</option></select></div>
         <div class="f c4 vonly"><label for="vhLoan">Loan (from Loans you're paying)</label><select id="vhLoan"></select></div>
@@ -1054,10 +1058,10 @@ function memory(){
 /* ---------- shared render ---------- */
 function optsCat(sel){return '<option value="">Choose a category</option>'+GROUPS.map(g=>'<optgroup label="'+esc(g.name)+'">'+g.cats.map(([id,n])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(n)+'</option>').join('')+'</optgroup>').join('')}
 function optsAcct(sel,first){return '<option value="">'+first+'</option>'+ACCOUNTS.map(a=>'<option'+(a===sel?' selected':'')+'>'+esc(a)+'</option>').join('')}
-const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income','loans','insurance','vehicles'];
+const VIEWS=['dashboard','log','receipts','accounts','daily','budget','rented','own','income','loans','insurance','vehicles','solar','appliances'];
 const SECTIONS=['dashboard','log','receipts','accounts','daily','budget','properties','income','loans','insurance','vehicles'];
-const secOf=v=>v==='rented'||v==='own'?'properties':v;
-const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses',loans:'Loans',insurance:'Life insurance',vehicles:'Vehicles & equipment'};
+const secOf=v=>v==='rented'||v==='own'?'properties':v==='solar'||v==='appliances'?'vehicles':v;
+const TITLES={dashboard:'Dashboard',log:'Expenses log',receipts:'Receipts',accounts:'Accounts',daily:'Daily breakdown',budget:'Budget tracking',rented:'Rented properties',own:'Own-use properties',income:'Income & expenses',loans:'Loans',insurance:'Life insurance',vehicles:'Vehicles',solar:'Solar',appliances:'Appliances'};
 function render(){
   $('#monthLabel').textContent=monthName(S.month);
   const items=itemsOf(S.month);
@@ -1070,7 +1074,7 @@ function render(){
   const ic=$('#importCard'),anchor=S.view==='receipts'?$('#inboxCard'):$('#v-log').firstElementChild;
   if(ic.previousElementSibling!==anchor)anchor.after(ic);
   $('#rcptLocal').hidden=store.mode==='cloud';
-  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome,loans:renderLoans,insurance:renderInsurance,vehicles:renderVehicles})[S.view](items);
+  ({dashboard:renderDash,log:renderLog,receipts:()=>{},accounts:renderAccounts,daily:renderDaily,budget:renderBudget,rented:()=>{},own:()=>{},income:renderIncome,loans:renderLoans,insurance:renderInsurance,vehicles:renderVehicles,solar:renderVehicles,appliances:renderVehicles})[S.view](items);
   if(S.view==='dashboard'){renderDashIns();renderDashVeh();renderAlerts()}
   insBadge();vehBadge();
   renderProps();
@@ -1488,40 +1492,50 @@ function dueChip(d,label){
 }
 const ALERT_DAYS=30;
 const vehAlerts=v=>[v.regExp,v.insExp,v.tplExp,v.pms].filter(d=>d&&Math.round((toDate(d)-toDate(today()))/864e5)<=ALERT_DAYS).length;
-function vehBadge(){const n=S.vehicles.reduce((t,v)=>t+vehAlerts(v),0),b=$('#navVehN');b.hidden=!n;b.textContent=n}
+function vehBadge(){const t=vehTotals(),b=$('#navVehN'),c=$('#navSolN'),a=$('#navAppN');b.hidden=!t.dueCars;b.textContent=t.dueCars;c.hidden=!t.dueEq;c.textContent=t.dueEq;a.hidden=!t.dueAp;a.textContent=t.dueAp}
 function vehLoanCell(v){
   if(v.status!=='loan')return '<span class="ind ok">Fully paid</span>';
   const o=vehLoan(v);if(!o)return '<span class="ind na">On a loan</span>';
   return '<span class="ind na">'+(o.paid||0)+(o.n?' of '+o.n:'')+' paid</span>'+(o.n?'<div class="small">'+fmt(oweBal(o))+' left'+(oweNext(o)?' · next '+dShort(oweNext(o)):'')+'</div>':'');
 }
-function vehTotals(){const cars=S.vehicles.filter(v=>v.kind!=='equipment'),onLoan=cars.filter(v=>v.status==='loan'),left=onLoan.reduce((t,v)=>{const o=vehLoan(v);return t+(o&&o.n?oweBal(o):0)},0);return {n:cars.length,eq:S.vehicles.length-cars.length,onLoan:onLoan.length,paid:cars.length-onLoan.length,left,due:S.vehicles.reduce((t,v)=>t+vehAlerts(v),0)}}
+const isCar=v=>!v.kind||v.kind==='vehicle';
+function vehTotals(){const cars=S.vehicles.filter(isCar),eqList=S.vehicles.filter(v=>v.kind==='equipment'),apList=S.vehicles.filter(v=>v.kind==='appliance'),onLoan=cars.filter(v=>v.status==='loan'),left=onLoan.reduce((t,v)=>{const o=vehLoan(v);return t+(o&&o.n?oweBal(o):0)},0);return {n:cars.length,eq:S.vehicles.length-cars.length,onLoan:onLoan.length,paid:cars.length-onLoan.length,left,due:S.vehicles.reduce((t,v)=>t+vehAlerts(v),0),dueCars:cars.reduce((t,v)=>t+vehAlerts(v),0),dueEq:eqList.reduce((t,v)=>t+vehAlerts(v),0),ap:apList.length,dueAp:apList.reduce((t,v)=>t+vehAlerts(v),0)}}
 function renderVehicles(){
   const blocked=store.mode==='cloud'&&!store.vehicles;$('#vehSetup').hidden=!blocked||!S.loaded;$('#vehAddBtn').disabled=blocked;
-  const t=vehTotals();
-  $('#vehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Fully paid',String(t.paid)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]]
-    .map(([k,v],i)=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+(i===4&&t.due?' neg':'')+'">'+v+'</span></div>').join('');
+  const t=vehTotals(),sol=S.view==='solar',app=S.view==='appliances';
+  $('#vehHead').textContent=app?'Appliances':sol?'Solar':'Vehicles';$('#vehAddBtn').textContent=app?'Add an appliance':sol?'Add solar or home equipment':'Add a vehicle';
+  $('#vehDesc').textContent=app?'House and condo appliances: where each one is, when and where it was bought, its warranty and the next service or cleaning. Each has a records log for receipts, warranty cards and service reports.':sol?'Solar panels and other home equipment: where and when installed, the installer, warranty and next cleaning or maintenance. Each has a records log for receipts, warranty papers and service reports.':'Family cars, on a loan or fully paid: registration, comprehensive insurance, CTPL and service dates. Each car has a records log for the OR/CR, policies and maintenance receipts.';
+  $('#vehTiles').innerHTML=(app?[['Appliances',String(t.ap)],['Total cost',fmt(S.vehicles.filter(v=>v.kind==='appliance').reduce((a,v)=>a+(+v.price||0),0))],['Due within 30 days',String(t.dueAp)]]:sol?[['Solar & equipment',String(t.eq)],['Total cost',fmt(S.vehicles.filter(v=>v.kind==='equipment').reduce((a,v)=>a+(+v.price||0),0))],['Due within 30 days',String(t.dueEq)]]
+      :[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Fully paid',String(t.paid)],['Car loans left',fmt(t.left)],['Due within 30 days',String(t.dueCars)]])
+    .map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v'+(/Due/.test(k)&&v!=='0'?' neg':'')+'">'+v+'</span></div>').join('');
   const vehCard=v=>{
-    const eq=v.kind==='equipment';
-    const facts=(eq?[['Installed at',v.owner],['Installed',v.bought?dShort(v.bought):''],['Installer / supplier',v.user],['Cost',v.price?fmt(v.price):''],['Warranty with',v.insurer]]:[['Plate',v.plate],['Colour',v.color],['Registered to',v.owner],['Used by',v.user],['Price',v.price?fmt(v.price):''],['Bought',v.bought?dShort(v.bought):''],['Car insurance',v.insurer],['Odometer',v.odo?Number(v.odo).toLocaleString('en-PH')+' km':'']]).filter(x=>x[1]);
-    return '<div class="card stack" data-vid="'+v.id+'"><div class="row spread"><div><h2>'+esc(v.name)+(v.year?' · '+esc(v.year):'')+'</h2><span class="small muted">'+esc(eq?[v.owner,v.bought?'installed '+dShort(v.bought):''].filter(Boolean).join(' · '):[v.user?'Used by '+v.user:'',v.plate].filter(Boolean).join(' · '))+'</span></div>'
+    const eq=!isCar(v),ap=v.kind==='appliance';
+    const facts=(ap?[['Location',v.owner],['Bought',v.bought?dShort(v.bought):''],['Store / supplier',v.user],['Price',v.price?fmt(v.price):''],['Warranty with',v.insurer]]:eq?[['Installed at',v.owner],['Installed',v.bought?dShort(v.bought):''],['Installer / supplier',v.user],['Cost',v.price?fmt(v.price):''],['Warranty with',v.insurer]]:[['Plate',v.plate],['Colour',v.color],['Registered to',v.owner],['Used by',v.user],['Price',v.price?fmt(v.price):''],['Bought',v.bought?dShort(v.bought):''],['Car insurance',v.insurer],['Odometer',v.odo?Number(v.odo).toLocaleString('en-PH')+' km':'']]).filter(x=>x[1]);
+    return '<div class="card stack" data-vid="'+v.id+'"><div class="row spread"><div><h2>'+esc(v.name)+(v.year?' · '+esc(v.year):'')+'</h2><span class="small muted">'+esc(eq?[v.owner,v.bought?(ap?'bought ':'installed ')+dShort(v.bought):''].filter(Boolean).join(' · '):[v.user?'Used by '+v.user:'',v.plate].filter(Boolean).join(' · '))+'</span></div>'
       +'<div class="row"><button type="button" class="btn link" data-vedit="'+v.id+'">Edit</button><button type="button" class="btn link" data-vdel="'+v.id+'">Delete</button></div></div>'
-      +'<div class="row" style="gap:8px;flex-wrap:wrap">'+(eq?dueChip(v.insExp,'Warranty')+(v.pms?dueChip(v.pms,'Maintenance'):'')+'</div>':vehLoanCell(v).replace('<div class="small">','<span class="small" style="align-self:center">').replace(/<\/div>$/,'</span>')+dueChip(v.regExp,'Registration')+dueChip(v.insExp,'Comprehensive')+(v.tplExp?dueChip(v.tplExp,'CTPL'):'')+(v.pms?dueChip(v.pms,'Service'):'')+'</div>')
+      +'<div class="row" style="gap:8px;flex-wrap:wrap">'+(eq?dueChip(v.insExp,'Warranty')+(v.pms?dueChip(v.pms,ap?'Service':'Maintenance'):'')+'</div>':vehLoanCell(v).replace('<div class="small">','<span class="small" style="align-self:center">').replace(/<\/div>$/,'</span>')+dueChip(v.regExp,'Registration')+dueChip(v.insExp,'Comprehensive')+(v.tplExp?dueChip(v.tplExp,'CTPL'):'')+(v.pms?dueChip(v.pms,'Service'):'')+'</div>')
       +(facts.length?'<div class="pfacts">'+facts.map(([k,x])=>'<div><span class="k">'+k+'</span>'+esc(x)+'</div>').join('')+'</div>':'')
       +(v.notes?'<p class="small muted" style="margin:0">'+esc(v.notes)+'</p>':'')+vehRecords(v)+'</div>'};
-  const cars=S.vehicles.filter(v=>v.kind!=='equipment').sort((a,b)=>(a.status==='loan'?0:1)-(b.status==='loan'?0:1)||String(a.name).localeCompare(b.name)),eqs=S.vehicles.filter(v=>v.kind==='equipment').sort((a,b)=>String(a.name).localeCompare(b.name));
+  const cars=S.vehicles.filter(isCar).sort((a,b)=>(a.status==='loan'?0:1)-(b.status==='loan'?0:1)||String(a.name).localeCompare(b.name)),eqs=S.vehicles.filter(v=>v.kind==='equipment').sort((a,b)=>String(a.name).localeCompare(b.name));
   const subHead=(t,l)=>l.length?'<div class="vsub"><h3>'+t+'</h3><span class="small">'+l.length+' · '+esc(l.map(v=>v.name).join(', '))+'</span></div>':'';
   const grpHead=(t,n)=>'<div class="vgroup"><h2>'+t+'</h2><span class="small">'+n+'</span></div>';
-  $('#vehList').innerHTML=S.vehicles.length?(cars.length?grpHead('🚗 Vehicles',cars.length+(cars.length===1?' car':' cars'))+subHead('Still on a loan',cars.filter(v=>v.status==='loan'))+cars.filter(v=>v.status==='loan').map(vehCard).join('')+subHead('Fully paid',cars.filter(v=>v.status!=='loan'))+cars.filter(v=>v.status!=='loan').map(vehCard).join(''):'')+(eqs.length?grpHead('☀️ Equipment',eqs.length+' item'+(eqs.length===1?'':'s')):'')+eqs.map(vehCard).join('')
-    :'<div class="card"><p class="muted" style="margin:0">'+(blocked?'Run supabase/vehicles.sql first.':'Nothing added yet. Tap Add a vehicle or equipment.')+'</p></div>';
+  const apps=S.vehicles.filter(v=>v.kind==='appliance').sort((a,b)=>String(a.owner||'').localeCompare(String(b.owner||''))||String(a.name).localeCompare(b.name));
+  const apProp=v=>S.props.find(p=>p.id===v.propId)||S.props.find(p=>v.owner&&p.name===v.owner);
+  const byPlace=l=>{const own=l.filter(v=>{const p=apProp(v);return p&&!p.rented}),rent=l.filter(v=>{const p=apProp(v);return p&&p.rented}),other=l.filter(v=>!apProp(v));
+    return [['🏡 Own-use properties',own],['🏢 Rented properties',rent],['Other',other]].filter(x=>x[1].length).map(([t,list])=>'<div class="vgroup"><h2>'+t+'</h2><span class="small">'+list.length+(list.length===1?' appliance':' appliances')+'</span></div>'+list.map(vehCard).join('')).join('')};
+  const mine=app?apps:sol?eqs:cars;
+  $('#vehList').innerHTML=mine.length?(app?byPlace(apps):'')+(sol?eqs.map(vehCard).join(''):'')+(!sol&&!app&&cars.length?grpHead('🚗 Vehicles',cars.length+(cars.length===1?' car':' cars'))+subHead('Still on a loan',cars.filter(v=>v.status==='loan'))+cars.filter(v=>v.status==='loan').map(vehCard).join('')+subHead('Fully paid',cars.filter(v=>v.status!=='loan'))+cars.filter(v=>v.status!=='loan').map(vehCard).join(''):'')
+    :'<div class="card"><p class="muted" style="margin:0">'+(blocked?'Run supabase/vehicles.sql first.':app?'No appliances yet. Tap Add an appliance.':sol?'No solar or equipment yet. Tap Add solar or home equipment.':'No vehicles yet. Tap Add a vehicle.')+'</p></div>';
 }
 /* records per vehicle: registration and insurance renewals, maintenance, repairs, each with an optional photo/PDF (private "proofs" folder).
    Saving a renewal or service with a "valid until / next service" date also updates that due date on the car. */
 const VREC=['Registration renewal','Insurance renewal','CTPL (third-party) insurance','Maintenance (PMS)','Repair','Tires & battery','Other'],EREC=['Installation','Cleaning','Maintenance','Repair','Warranty claim','Other'];
-const recTypes=v=>v.kind==='equipment'?EREC:VREC;
+const AREC=['Purchase','Service / cleaning','Repair','Warranty claim','Other'];
+const recTypes=v=>v.kind==='appliance'?AREC:v.kind==='equipment'?EREC:VREC;
 const vrecs=v=>v.recs||(v.recs=[]);
 function vehRecords(v){
   const list=vrecs(v).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0),cloud=store.mode==='cloud',tot=list.reduce((t,r)=>t+(+r.amt||0),0);
-  let h='<div class="row spread"><h3>'+(v.kind==='equipment'?'Installation & maintenance records':'Registration, insurance & maintenance records')+(list.length?' · '+list.length+' · '+fmt(tot)+' spent':'')+'</h3></div>';
+  let h='<div class="row spread"><h3>'+(v.kind==='appliance'?'Purchase, service & repair records':v.kind==='equipment'?'Installation & maintenance records':'Registration, insurance & maintenance records')+(list.length?' · '+list.length+' · '+fmt(tot)+' spent':'')+'</h3></div>';
   if(list.length)h+='<div class="scroll"><table class="dues"><thead><tr><th>Date</th><th>Record</th><th class="r">Amount</th><th>Odometer</th><th></th></tr></thead><tbody>'
     +list.map(r=>'<tr><td style="white-space:nowrap">'+dShort(r.date)+'</td><td><strong>'+esc(r.type)+'</strong>'+(r.until?'<div class="small">'+(/Maint|Clean|Install/.test(r.type)?'Next maintenance ':'Valid until ')+dShort(r.until)+'</div>':'')+(r.notes?'<div class="small muted">'+esc(r.notes)+'</div>':'')+'</td>'
       +'<td class="num r">'+(r.amt?fmt(r.amt):'–')+'</td><td class="small">'+(r.odo?Number(r.odo).toLocaleString('en-PH')+' km':'')+'</td><td class="acts">'
@@ -1539,7 +1553,7 @@ function vehRecords(v){
       +'<div class="f c8"><label>Notes</label><input type="text" name="notes" maxlength="200" value="'+esc(r.notes||'')+'" placeholder="e.g. Change oil, Toyota Alabang; OR/CR renewed at LTO"></div>'
       +(cloud?'<div class="f c12"><label>Photo or PDF (receipt, OR/CR, policy, service report; optional)</label><input type="file" name="proof" accept="image/*,application/pdf"><span class="hint">'+(r.proof?'A file is already saved; choosing one replaces it.':'You can also add it later with Upload proof.')+'</span></div>':'')
       +'<div class="row c12"><button type="submit" class="btn primary">'+(f.id?'Save changes':'Add record')+'</button><button type="button" class="btn" data-vrcancel="1">Cancel</button><span class="msg" data-vrmsg></span></div></form>';
-  } else {const q=v.kind==='equipment'?[['Installation','Installation / warranty'],['Maintenance','Maintenance / cleaning'],['Repair','Repair receipt']]:[['Registration renewal','Registration (OR/CR)'],['Insurance renewal','Comprehensive insurance'],['CTPL (third-party) insurance','CTPL'],['Maintenance (PMS)','Maintenance / receipt']];
+  } else {const q=v.kind==='appliance'?[['Purchase','Receipt / warranty card'],['Service / cleaning','Service / cleaning'],['Repair','Repair receipt']]:v.kind==='equipment'?[['Installation','Installation / warranty'],['Maintenance','Maintenance / cleaning'],['Repair','Repair receipt']]:[['Registration renewal','Registration (OR/CR)'],['Insurance renewal','Comprehensive insurance'],['CTPL (third-party) insurance','CTPL'],['Maintenance (PMS)','Maintenance / receipt']];
     h+='<div class="upq"><span class="small"><strong>Upload</strong></span>'+q.map(([ty,lab])=>'<button type="button" class="btn" data-vrquick="'+v.id+'|'+ty+'">⬆ '+lab+'</button>').join('')+'<button type="button" class="btn link" data-vradd="'+v.id+'">Other record</button></div>'}
   return h;
 }
@@ -1559,8 +1573,8 @@ vehFileIn.addEventListener('change',()=>{const f=vehFileIn.files[0],t=S.vrecUp;v
 /* one list of everything expiring or due within 60 days: car registration, comprehensive insurance, CTPL, service, equipment warranty/maintenance, and life insurance premiums */
 function upcoming(){
   const td=today(),out=[],days=d=>Math.round((toDate(d)-toDate(td))/864e5);
-  S.vehicles.forEach(v=>{const eq=v.kind==='equipment';
-    [[v.regExp,'Registration'],[v.insExp,eq?'Warranty':'Comprehensive insurance'],[v.tplExp,'CTPL insurance'],[v.pms,eq?'Maintenance':'Service (PMS)']].forEach(([d,what])=>{if(d&&!(eq&&what==='Registration')){const n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what,who:v.name+(v.plate?' · '+v.plate:''),go:'vehicles'})}})});
+  S.vehicles.forEach(v=>{const eq=!isCar(v);
+    [[v.regExp,'Registration'],[v.insExp,eq?'Warranty':'Comprehensive insurance'],[v.tplExp,'CTPL insurance'],[v.pms,eq?'Maintenance':'Service (PMS)']].forEach(([d,what])=>{if(d&&!(eq&&what==='Registration')){const n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what,who:v.name+(v.plate?' · '+v.plate:''),go:v.kind==='appliance'?'appliances':eq?'solar':'vehicles'})}})});
   S.policies.filter(p=>p.kind==='paying'&&p.paidUntil).forEach(p=>{const end=ymd(new Date(+p.paidUntil.slice(0,4),+p.paidUntil.slice(5),0)),n=days(end);if(n<=ALERT_DAYS)out.push({n,d:end,what:'Life insurance premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
   /* yearly premiums with no 'paid up to' (e.g. BDO Life charged to the card each year): next policy anniversary */
   S.policies.filter(p=>p.kind==='paying'&&!p.paidUntil&&p.start&&!(+p.monthly)&&(+p.annual)).forEach(p=>{const d=nextAnniv(p.start),n=days(d);if(n<=ALERT_DAYS)out.push({n,d,what:'Life insurance yearly premium',who:p.insured+' · '+p.insurer+' '+p.plan,go:'insurance'})});
@@ -1574,18 +1588,21 @@ function renderAlerts(){
   $('#dashAlertsList').innerHTML=list.map(x=>'<a class="alertrow" href="#'+x.go+'" data-go="'+x.go+'"><span class="ind due '+(x.n<=30?'no':'soon')+'">'+(x.n<0?'Expired '+(-x.n)+' days ago':x.n===0?'Today':'In '+x.n+' days')+'</span><span><strong>'+esc(x.what)+'</strong><span class="small"> · '+esc(x.who)+'</span></span><span class="small" style="margin-left:auto;white-space:nowrap">'+dShort(x.d)+'</span></a>').join('');
 }
 function renderDashVeh(){
-  const card=$('#dashVeh');card.hidden=!S.vehicles.length;if(!S.vehicles.length)return;
+  const cars=S.vehicles.filter(isCar),card=$('#dashVeh');card.hidden=!cars.length;if(!cars.length)return;
   const t=vehTotals();
-  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Car loans left',fmt(t.left)],['Equipment',String(t.eq)],['Due within 30 days',String(t.due)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
-  $('#dashVehBody').innerHTML=S.vehicles.slice().sort((a,b)=>(a.kind==='equipment'?1:0)-(b.kind==='equipment'?1:0)||String(a.name).localeCompare(b.name)).map((v,i,arr)=>(i===0||(arr[i-1].kind==='equipment')!==(v.kind==='equipment')?'<tr class="group"><td colspan="5"><strong>'+(v.kind==='equipment'?'Equipment':'Vehicles')+'</strong></td></tr>':'')+'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+(v.kind!=='equipment'&&v.tplExp?'<div style="margin-top:4px">'+dueChip(v.tplExp,'CTPL')+'</div>':'')+'</td></tr>').join('');
+  $('#dashVehTiles').innerHTML=[['Vehicles',String(t.n)],['Still on a loan',String(t.onLoan)],['Car loans left',fmt(t.left)],['Due within 30 days',String(t.dueCars)]].map(([k,v])=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>').join('');
+  $('#dashVehBody').innerHTML=cars.slice().sort((a,b)=>(a.kind==='equipment'?1:0)-(b.kind==='equipment'?1:0)||String(a.name).localeCompare(b.name)).map((v,i,arr)=>(i===0||(arr[i-1].kind==='equipment')!==(v.kind==='equipment')?'<tr class="group"><td colspan="5"><strong>'+(v.kind==='equipment'?'Equipment':'Vehicles')+'</strong></td></tr>':'')+'<tr><td><strong>'+esc(v.name)+'</strong>'+(v.plate?'<div class="small muted">'+esc(v.plate)+'</div>':'')+'</td><td class="small">'+esc(v.kind==='equipment'?v.owner||'':v.user||'')+'</td><td>'+(v.kind==='equipment'?'<span class="small muted">–</span>':vehLoanCell(v))+'</td><td>'+(v.kind==='equipment'?(v.pms?dueChip(v.pms,'Maint.'):'<span class="small muted">–</span>'):dueChip(v.regExp,''))+'</td><td>'+dueChip(v.insExp,'')+(v.kind!=='equipment'&&v.tplExp?'<div style="margin-top:4px">'+dueChip(v.tplExp,'CTPL')+'</div>':'')+'</td></tr>').join('');
 }
 const VLAB={vehicle:{vhNameL:'Vehicle',vhOwnerL:'Registered to',vhUserL:'Used by',vhBoughtL:'Date bought',vhInsurerL:'Car insurance with',vhInsExpL:'Comprehensive insurance expires',vhPmsL:'Next service (PMS)'},
+  appliance:{vhNameL:'Appliance (brand & model)',vhOwnerL:'Location (house / condo)',vhUserL:'Store / supplier',vhBoughtL:'Date bought',vhInsurerL:'Warranty with',vhInsExpL:'Warranty until',vhPmsL:'Next service / cleaning'},
   equipment:{vhNameL:'Equipment',vhOwnerL:'Installed at',vhUserL:'Installer / supplier',vhBoughtL:'Date installed',vhInsurerL:'Warranty with',vhInsExpL:'Warranty until',vhPmsL:'Next maintenance / cleaning'}};
-function setVehKind(k){$('#vehForm').classList.toggle('equip',k==='equipment');Object.entries(VLAB[k]||VLAB.vehicle).forEach(([id,t])=>{$('#'+id).textContent=t});$('#vhName').placeholder=k==='equipment'?'e.g. Solar panels, Brentville':'e.g. Mercedes GLC 2024'}
+function setVehKind(k){$('#vehForm').classList.toggle('equip',k!=='vehicle');$('#vehForm').classList.toggle('appl',k==='appliance');Object.entries(VLAB[k]||VLAB.vehicle).forEach(([id,t])=>{$('#'+id).textContent=t});$('#vhName').placeholder=k==='appliance'?'e.g. Samsung refrigerator RT38':k==='equipment'?'e.g. Solar panels, Brentville':'e.g. Mercedes GLC 2024'}
 $('#vhKind').addEventListener('change',e=>setVehKind(e.target.value));
 function openVehicle(v){
   S.vehEdit=v?v.id:null;const set=(id,x)=>{$(id).value=x==null?'':x};
-  $('#vhKind').value=v?v.kind||'vehicle':'vehicle';setVehKind($('#vhKind').value);set('#vhName',v&&v.name);set('#vhYear',v&&v.year);set('#vhPlate',v&&v.plate);set('#vhColor',v&&v.color);set('#vhOwner',v&&v.owner);set('#vhUser',v&&v.user);$('#vhStatus').value=v?v.status||'paid':'loan';
+  $('#vhKind').value=v?v.kind||'vehicle':(S.view==='appliances'?'appliance':S.view==='solar'?'equipment':'vehicle');setVehKind($('#vhKind').value);set('#vhName',v&&v.name);set('#vhYear',v&&v.year);set('#vhPlate',v&&v.plate);set('#vhColor',v&&v.color);set('#vhOwner',v&&v.owner);set('#vhUser',v&&v.user);$('#vhStatus').value=v?v.status||'paid':'loan';
+  const pOpt=r=>S.props.filter(p=>!!p.rented===r).map(p=>'<option value="'+p.id+'"'+(v&&v.propId===p.id?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+  $('#vhProp').innerHTML='<option value="">Choose a property</option><optgroup label="Own-use properties">'+pOpt(false)+'</optgroup><optgroup label="Rented properties">'+pOpt(true)+'</optgroup>';
   $('#vhLoan').innerHTML='<option value="">None / not listed</option>'+S.loans.filter(l=>l.dir==='owe').map(l=>'<option value="'+l.id+'"'+(v&&v.loan===l.id?' selected':'')+'>'+esc(l.name)+'</option>').join('');
   set('#vhPrice',v&&v.price);set('#vhBought',v&&v.bought);set('#vhReg',v&&v.regExp);set('#vhInsurer',v&&v.insurer);set('#vhInsExp',v&&v.insExp);set('#vhTpl',v&&v.tplExp);set('#vhPms',v&&v.pms);set('#vhOdo',v&&v.odo);set('#vhNotes',v&&v.notes);
   $('#vhSave').textContent=v?'Save changes':'Add vehicle';$('#vhMsg').textContent='';$('#vehForm').hidden=false;$('#vehForm').scrollIntoView({block:'center'});$('#vhName').focus();
@@ -1599,6 +1616,7 @@ $('#vehForm').addEventListener('submit',e=>{
   const old=S.vehEdit&&S.vehicles.find(v=>v.id===S.vehEdit),kind=$('#vhKind').value,status=kind==='equipment'?'paid':$('#vhStatus').value;
   const v=Object.assign(old||{id:newId()},{kind,name,year:txt('#vhYear',4),plate:txt('#vhPlate',12).toUpperCase(),color:txt('#vhColor',30),owner:txt('#vhOwner',60),user:txt('#vhUser',60),status,loan:status==='loan'?$('#vhLoan').value:'',
     price:Math.round((parseFloat($('#vhPrice').value)||0)*100)/100,bought:$('#vhBought').value,regExp:$('#vhReg').value,insurer:txt('#vhInsurer',60),insExp:$('#vhInsExp').value,tplExp:$('#vhTpl').value,pms:$('#vhPms').value,odo:Math.max(0,parseInt($('#vhOdo').value,10)||0),notes:txt('#vhNotes',200)});
+  if(kind==='appliance'){const pr=S.props.find(p=>p.id===$('#vhProp').value);v.propId=pr?pr.id:'';v.owner=pr?pr.name:v.owner}
   if(!old)S.vehicles.push(v);saveVehicle(v);$('#vehForm').hidden=true;S.vehEdit=null;render();toast(old?'Vehicle updated.':'Vehicle added.');
 });
 $('#vehList').addEventListener('click',e=>{
@@ -1622,7 +1640,7 @@ $('#vehList').addEventListener('submit',e=>{
   const old=S.vrecFor&&S.vrecFor.id&&vrecs(v).find(x=>x.id===S.vrecFor.id);
   const r=Object.assign(old||{id:newId()},{date:g('date'),type:g('type'),amt:Math.round((parseFloat(g('amt'))||0)*100)/100,odo:Math.max(0,parseInt(g('odo'),10)||0),until:g('until'),notes:g('notes').trim().slice(0,200)});
   if(!old)vrecs(v).push(r);
-  if(r.until){if(r.type==='Registration renewal'&&(!v.regExp||r.until>v.regExp))v.regExp=r.until;if(r.type==='Insurance renewal'&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^CTPL/.test(r.type)&&(!v.tplExp||r.until>v.tplExp))v.tplExp=r.until;if(/^(Maintenance|Cleaning|Installation)/.test(r.type)&&(!v.pms||r.until>v.pms||v.pms<=r.date))v.pms=r.until;if(r.type==='Warranty claim'&&false)v.insExp=r.until}
+  if(r.until){if(r.type==='Registration renewal'&&(!v.regExp||r.until>v.regExp))v.regExp=r.until;if(r.type==='Insurance renewal'&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^CTPL/.test(r.type)&&(!v.tplExp||r.until>v.tplExp))v.tplExp=r.until;if(r.type==='Purchase'&&r.until&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^(Maintenance|Cleaning|Installation|Service)/.test(r.type)&&(!v.pms||r.until>v.pms||v.pms<=r.date))v.pms=r.until;if(r.type==='Warranty claim'&&false)v.insExp=r.until}
   if(r.odo&&r.odo>(+v.odo||0))v.odo=r.odo;
   const file=fm.elements.proof&&fm.elements.proof.files[0];
   S.vrecFor=null;saveVehicle(v);render();toast('Record saved for '+v.name+'.');
