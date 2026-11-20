@@ -1530,6 +1530,7 @@ function renderVehicles(){
 /* records per vehicle: registration and insurance renewals, maintenance, repairs, each with an optional photo/PDF (private "proofs" folder).
    Saving a renewal or service with a "valid until / next service" date also updates that due date on the car. */
 const VREC=['Registration renewal','Insurance renewal','CTPL (third-party) insurance','Maintenance (PMS)','Repair','Tires & battery','Other'],EREC=['Installation','Cleaning','Maintenance','Repair','Warranty claim','Other'];
+const APPL_EVERY=6; // months between appliance services
 const AREC=['Purchase','Service / cleaning','Repair','Warranty claim','Other'];
 const recTypes=v=>v.kind==='appliance'?AREC:v.kind==='equipment'?EREC:VREC;
 const vrecs=v=>v.recs||(v.recs=[]);
@@ -1544,6 +1545,8 @@ function vehRecords(v){
       +'<button type="button" class="btn link" data-vredit="'+v.id+'|'+r.id+'">Edit</button><button type="button" class="btn link" data-vrdel="'+v.id+'|'+r.id+'">Delete</button></td></tr>').join('')+'</tbody></table></div>';
   const f=S.vrecFor&&S.vrecFor.vid===v.id?S.vrecFor:null;
   if(f){const r=f.id?vrecs(v).find(x=>x.id===f.id):{date:today(),type:f.type||recTypes(v)[2]};
+    /* appliances: maintenance every 6 months, so a new service or cleaning suggests the next one 6 months later */
+    if(!f.id&&v.kind==='appliance'&&/^Service/.test(r.type))r.until=addMonths(today(),APPL_EVERY);
     h+='<form class="form payform" data-vrform="'+v.id+'" autocomplete="off">'
       +'<div class="f c3"><label>Date</label><input type="date" name="date" value="'+esc(r.date||'')+'" required></div>'
       +'<div class="f c3"><label>Record</label><select name="type">'+recTypes(v).map(x=>'<option'+(x===r.type?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'
@@ -1638,7 +1641,7 @@ $('#vehList').addEventListener('submit',e=>{
   const v=S.vehicles.find(x=>x.id===fm.dataset.vrform);if(!v)return;const g=n=>fm.elements[n].value,msg=fm.querySelector('[data-vrmsg]');
   if(!g('date'))return msg.textContent='Choose the date.';
   const old=S.vrecFor&&S.vrecFor.id&&vrecs(v).find(x=>x.id===S.vrecFor.id);
-  const r=Object.assign(old||{id:newId()},{date:g('date'),type:g('type'),amt:Math.round((parseFloat(g('amt'))||0)*100)/100,odo:Math.max(0,parseInt(g('odo'),10)||0),until:g('until'),notes:g('notes').trim().slice(0,200)});
+  const r=Object.assign(old||{id:newId()},{date:g('date'),type:g('type'),amt:Math.round((parseFloat(g('amt'))||0)*100)/100,odo:Math.max(0,parseInt(g('odo'),10)||0),until:g('until')||(v.kind==='appliance'&&/^Service/.test(g('type'))?addMonths(g('date'),APPL_EVERY):''),notes:g('notes').trim().slice(0,200)});
   if(!old)vrecs(v).push(r);
   if(r.until){if(r.type==='Registration renewal'&&(!v.regExp||r.until>v.regExp))v.regExp=r.until;if(r.type==='Insurance renewal'&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^CTPL/.test(r.type)&&(!v.tplExp||r.until>v.tplExp))v.tplExp=r.until;if(r.type==='Purchase'&&r.until&&(!v.insExp||r.until>v.insExp))v.insExp=r.until;if(/^(Maintenance|Cleaning|Installation|Service)/.test(r.type)&&(!v.pms||r.until>v.pms||v.pms<=r.date))v.pms=r.until;if(r.type==='Warranty claim'&&false)v.insExp=r.until}
   if(r.odo&&r.odo>(+v.odo||0))v.odo=r.odo;
